@@ -68,9 +68,3 @@ star/
     └── src/
         └── pages/         # as 5 telas do MVP
 ```
-
-## Status atual
-
-MVP em construção. Próximos passos: aplicar o visual definido no Claude
-Design sobre os componentes shadcn/ui, e testar o fluxo fim a fim
-(conexões → seleção → geração via IA → export PDF).
