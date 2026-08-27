@@ -43,6 +43,13 @@ export class DocumentItem {
     this._star = star;
   }
 
+  // Limpa o STAR (usado ao forçar uma regeração completa via IA — ver
+  // GenerateDocumentUseCase) — depois disso o item volta a contar como
+  // "pendente" para fins de retomada em caso de falha.
+  resetStar(): void {
+    this._star = StarContent.empty();
+  }
+
   // Reordenação (via IA ou manual) — ver Document.reorderItems
   reorder(newOrder: number): void {
     this._order = newOrder;

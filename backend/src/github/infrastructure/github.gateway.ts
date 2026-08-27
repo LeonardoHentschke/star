@@ -58,6 +58,10 @@ export class GithubGateway implements GithubGatewayPort {
     try {
       const { data } = await this.client.get('/search/issues', { params: { q: query, per_page: 100 } });
 
+      // A Search API não retorna additions/deletions/changed_files (só o
+      // endpoint de detalhe de uma PR específica retorna) — exigiria uma
+      // chamada extra por PR, fora de escopo aqui pois este método não é
+      // usado no fluxo de criação de item.
       return data.items.map((pr: any) => ({
         number: pr.number,
         repo: repoFullName,
@@ -68,6 +72,9 @@ export class GithubGateway implements GithubGatewayPort {
         url: pr.html_url,
         createdAt: pr.created_at,
         mergedAt: pr.pull_request?.merged_at ?? null,
+        additions: 0,
+        deletions: 0,
+        changedFiles: 0,
       }));
     } catch (err) {
       throw new InternalServerErrorException(
@@ -93,6 +100,9 @@ export class GithubGateway implements GithubGatewayPort {
         url: pr.html_url,
         createdAt: pr.created_at,
         mergedAt: pr.merged_at ?? null,
+        additions: pr.additions ?? 0,
+        deletions: pr.deletions ?? 0,
+        changedFiles: pr.changed_files ?? 0,
       };
     } catch (err) {
       throw new InternalServerErrorException(`Falha ao buscar Pull Request ${repo}#${numberStr}: ${this.describeError(err)}`);

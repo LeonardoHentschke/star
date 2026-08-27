@@ -5,6 +5,9 @@ import { SourceReference } from './value-objects/source-reference.vo';
 import { StarContent } from './value-objects/star-content.vo';
 import { DocumentItemNotFoundError } from './errors/document-domain.errors';
 
+export type DocumentJobStatus = 'idle' | 'processing' | 'failed';
+export type DocumentJobType = 'add_items' | 'generate';
+
 /**
  * Aggregate Root do bounded context "Documents".
  *
@@ -23,6 +26,12 @@ export class Document {
     private _executiveSummary: string | null,
     private _items: DocumentItem[],
     public readonly createdAt: Date,
+    private _favorite: boolean,
+    private _jobStatus: DocumentJobStatus,
+    private _jobType: DocumentJobType | null,
+    private _jobError: string | null,
+    private _jobProgress: { done: number; total: number } | null,
+    private _jobPayload: Record<string, unknown> | null,
   ) {}
 
   // RF10 — criar um novo documento
@@ -34,6 +43,12 @@ export class Document {
       null,
       [],
       new Date(),
+      false,
+      'idle',
+      null,
+      null,
+      null,
+      null,
     );
   }
 
@@ -46,6 +61,12 @@ export class Document {
     executiveSummary: string | null;
     items: DocumentItem[];
     createdAt: Date;
+    favorite: boolean;
+    jobStatus: DocumentJobStatus;
+    jobType: DocumentJobType | null;
+    jobError: string | null;
+    jobProgress: { done: number; total: number } | null;
+    jobPayload: Record<string, unknown> | null;
   }): Document {
     return new Document(
       fields.id,
@@ -54,6 +75,12 @@ export class Document {
       fields.executiveSummary,
       fields.items,
       fields.createdAt,
+      fields.favorite,
+      fields.jobStatus,
+      fields.jobType,
+      fields.jobError,
+      fields.jobProgress,
+      fields.jobPayload,
     );
   }
 
@@ -73,8 +100,46 @@ export class Document {
     return this._items;
   }
 
+  get favorite(): boolean {
+    return this._favorite;
+  }
+
+  // Estado do processamento em background (adicionar itens / gerar com IA).
+  // Só leitura no agregado — as transições são operacionais (um tick por item
+  // processado) e são escritas direto pelo repositório via `updateJobState`,
+  // sem passar pelas invariantes de negócio aqui.
+  get jobStatus(): DocumentJobStatus {
+    return this._jobStatus;
+  }
+
+  get jobType(): DocumentJobType | null {
+    return this._jobType;
+  }
+
+  get jobError(): string | null {
+    return this._jobError;
+  }
+
+  get jobProgress(): { done: number; total: number } | null {
+    return this._jobProgress;
+  }
+
+  // Guarda o suficiente do pedido original (itens a adicionar / flag de
+  // regenerar resumo) pra permitir retomar um job que falhou sem o cliente
+  // precisar reenviar nada — ver AddDocumentItemsUseCase/GenerateDocumentUseCase.
+  get jobPayload(): Record<string, unknown> | null {
+    return this._jobPayload;
+  }
+
   rename(title: string): void {
     this._title = title;
+  }
+
+  // Favorito é uma flag global (a aplicação não tem usuários/autenticação):
+  // só existe um documento favorito por vez — quem garante isso é o
+  // repositório (`clearFavorite`), chamado pelo use case antes de marcar um novo.
+  setFavorite(value: boolean): void {
+    this._favorite = value;
   }
 
   // RF06/RF07 — adicionar itens selecionados de Jira/GitHub ao documento
@@ -85,9 +150,20 @@ export class Document {
     return item;
   }
 
-  // RF08 — aplica o STAR gerado pela IA a um item específico
-  applyGeneratedStarToItem(itemId: string, star: StarContent): void {
-    this.findItemOrThrow(itemId).applyGeneratedStar(star);
+  // RF08 — aplica o STAR gerado pela IA a um item específico. Retorna o item
+  // mutado pra quem chamou poder persisti-lo imediatamente (ver
+  // GenerateDocumentUseCase), sem precisar buscá-lo de novo.
+  applyGeneratedStarToItem(itemId: string, star: StarContent): DocumentItem {
+    const item = this.findItemOrThrow(itemId);
+    item.applyGeneratedStar(star);
+    return item;
+  }
+
+  // Limpa o STAR de todos os itens — usado ao forçar uma regeração completa
+  // via IA (ver GenerateDocumentUseCase.start), pra que "pendente" volte a
+  // significar corretamente "ainda não refeito nesta rodada".
+  resetAllStars(): void {
+    this._items.forEach((item) => item.resetStar());
   }
 
   // RF09 — edição manual de um item

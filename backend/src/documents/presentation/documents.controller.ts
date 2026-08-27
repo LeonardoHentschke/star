@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -19,6 +20,8 @@ import {
   GenerateDocumentSchema,
   ReorderDocumentItemsDto,
   ReorderDocumentItemsSchema,
+  SetFavoriteDocumentDto,
+  SetFavoriteDocumentSchema,
   UpdateDocumentDto,
   UpdateDocumentItemDto,
   UpdateDocumentItemSchema,
@@ -34,6 +37,7 @@ import { UpdateDocumentItemUseCase } from '../application/use-cases/update-docum
 import { ReorderDocumentItemsUseCase } from '../application/use-cases/reorder-document-items.use-case';
 import { GenerateDocumentUseCase } from '../application/use-cases/generate-document.use-case';
 import { ExportDocumentPdfUseCase } from '../application/use-cases/export-document-pdf.use-case';
+import { SetFavoriteDocumentUseCase } from '../application/use-cases/set-favorite-document.use-case';
 import { DocumentPresenter } from './document.presenter';
 
 @Controller('documents')
@@ -49,6 +53,7 @@ export class DocumentsController {
     private readonly reorderDocumentItems: ReorderDocumentItemsUseCase,
     private readonly generateDocument: GenerateDocumentUseCase,
     private readonly exportDocumentPdf: ExportDocumentPdfUseCase,
+    private readonly setFavoriteDocument: SetFavoriteDocumentUseCase,
   ) {}
 
   // RF10
@@ -81,6 +86,17 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
+  // Marcar/desmarcar como favorito (usado pela tela de Dashboard para abrir
+  // sempre no mesmo documento).
+  @Patch(':id/favorite')
+  async setFavorite(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(SetFavoriteDocumentSchema)) dto: SetFavoriteDocumentDto,
+  ) {
+    const document = await this.setFavoriteDocument.execute(id, dto.favorite);
+    return DocumentPresenter.toSummary(document);
+  }
+
   // RF10
   @Delete(':id')
   async remove(@Param('id') id: string) {
@@ -88,14 +104,25 @@ export class DocumentsController {
     return { deleted: true };
   }
 
-  // RF06/RF07 — selecionar itens de Jira/GitHub para o documento
+  // RF06/RF07 — selecionar itens de Jira/GitHub para o documento. Processa em
+  // background (pode levar minutos com muitos itens) — responde na hora.
   @Post(':id/items')
+  @HttpCode(202)
   async addItems(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(AddDocumentItemsBatchSchema)) dto: AddDocumentItemsBatchDto,
   ) {
-    const document = await this.addDocumentItems.execute(id, dto);
-    return DocumentPresenter.toDetail(document);
+    await this.addDocumentItems.start(id, dto);
+    return { accepted: true };
+  }
+
+  // Retoma um job de adicionar itens que falhou — continua de onde parou,
+  // sem precisar reenviar a seleção original.
+  @Post(':id/items/resume')
+  @HttpCode(202)
+  async resumeAddItems(@Param('id') id: string) {
+    await this.addDocumentItems.resume(id);
+    return { accepted: true };
   }
 
   // Reordenação manual dos itens (usuário não concorda com a ordem sugerida pela
@@ -121,14 +148,25 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
-  // RF08 + RF12 — gerar textos STAR e resumo executivo via IA
+  // RF08 + RF12 — gerar textos STAR e resumo executivo via IA. Processa em
+  // background (uma chamada de IA por item) — responde na hora.
   @Post(':id/generate')
+  @HttpCode(202)
   async generate(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(GenerateDocumentSchema)) dto: GenerateDocumentDto,
   ) {
-    const document = await this.generateDocument.execute(id, dto.regenerateSummary);
-    return DocumentPresenter.toDetail(document);
+    await this.generateDocument.start(id, dto.regenerateSummary);
+    return { accepted: true };
+  }
+
+  // Retoma um job de geração via IA que falhou — continua só os itens ainda
+  // incompletos, sem reprocessar (e re-cobrar) os que já foram gerados.
+  @Post(':id/generate/resume')
+  @HttpCode(202)
+  async resumeGenerate(@Param('id') id: string) {
+    await this.generateDocument.resume(id);
+    return { accepted: true };
   }
 
   // RF11 — exportar PDF

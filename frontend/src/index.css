@@ -26,6 +26,12 @@
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
   --destructive: oklch(0.577 0.245 27.325);
+
+  --chart-1: oklch(0.623 0.188 259.8); /* azul — jira */
+  --chart-2: oklch(0.606 0.196 295.9); /* violeta — github */
+  --chart-3: oklch(0.696 0.17 162.5); /* esmeralda — feito/sucesso */
+  --chart-4: oklch(0.769 0.188 70.1); /* âmbar — neutro */
+  --chart-5: oklch(0.556 0 0); /* cinza — outro */
 }
 
 .dark {
@@ -47,6 +53,12 @@
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+
+  --chart-1: oklch(0.707 0.165 259.8);
+  --chart-2: oklch(0.702 0.17 295.9);
+  --chart-3: oklch(0.765 0.155 162.5);
+  --chart-4: oklch(0.82 0.165 70.1);
+  --chart-5: oklch(0.708 0 0);
 }
 
 @theme inline {
@@ -71,6 +83,12 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);

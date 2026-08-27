@@ -5,6 +5,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { JiraModule } from './jira/jira.module';
 import { GithubModule } from './github/github.module';
 import { AiModule } from './ai/ai.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AiModule } from './ai/ai.module';
     JiraModule,
     GithubModule,
     AiModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}

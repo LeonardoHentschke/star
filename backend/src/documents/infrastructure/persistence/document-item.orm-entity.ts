@@ -36,6 +36,24 @@ export class DocumentItemOrmEntity {
   @Column({ type: 'json', nullable: true })
   rawSnapshot: Record<string, unknown> | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  jiraStatus: string | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  jiraDone: boolean | null;
+
+  @Column({ type: 'boolean', nullable: true })
+  merged: boolean | null;
+
+  @Column({ type: 'int', default: 0 })
+  additions: number;
+
+  @Column({ type: 'int', default: 0 })
+  deletions: number;
+
+  @Column({ type: 'int', default: 0 })
+  changedFiles: number;
+
   @Column({ type: 'text', nullable: true })
   situation: string | null;
 

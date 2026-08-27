@@ -16,5 +16,6 @@ import { GithubController } from './presentation/github.controller';
     ListGithubPullRequestsUseCase,
     GetGithubPullRequestUseCase,
   ],
+  exports: [GITHUB_GATEWAY],
 })
 export class GithubModule {}

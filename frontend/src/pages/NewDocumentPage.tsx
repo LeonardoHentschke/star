@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDateShort } from '@/lib/utils';
+import { useTrackDocumentJob } from '@/lib/document-job-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,17 +15,8 @@ interface JiraTask {
   key: string;
   summary: string;
   description: string | null;
-  url: string;
-}
-interface JiraLinkedPullRequest {
-  url: string;
   status: string;
-}
-interface GithubPullRequest {
-  number: number;
-  repo: string;
-  title: string;
-  body: string | null;
+  statusCategory: 'new' | 'indeterminate' | 'done';
   url: string;
 }
 
@@ -32,6 +24,7 @@ interface GithubPullRequest {
 // vinculados a cada tarefa (app "GitHub for Jira") entram automaticamente.
 export default function NewDocumentPage() {
   const navigate = useNavigate();
+  const trackJob = useTrackDocumentJob();
 
   const [title, setTitle] = useState('');
   const [periodStart, setPeriodStart] = useState('');
@@ -69,49 +62,22 @@ export default function NewDocumentPage() {
     const { data: doc } = await api.post('/documents', { title, periodStart, periodEnd });
 
     const selected = tasks.filter((t) => selectedTasks.includes(t.key));
+    const items = selected.map((task) => ({
+      sourceType: 'jira' as const,
+      sourceRef: task.key,
+      sourceTitle: task.summary,
+      sourceUrl: task.url,
+      jiraIssueId: task.id,
+      jiraStatus: task.status,
+      jiraStatusCategory: task.statusCategory,
+      description: task.description,
+    }));
 
-    const items = await Promise.all(
-      selected.map(async (task) => {
-        const { data: linked } = await api.get<JiraLinkedPullRequest[]>(
-          `/jira/tasks/${task.id}/pull-requests`,
-        );
-
-        const pullRequests = await Promise.all(
-          linked.map((pr) =>
-            api.get<GithubPullRequest>('/github/pull-requests/lookup', { params: { url: pr.url } }),
-          ),
-        ).then((results) => results.map((r) => r.data));
-
-        const description = [
-          task.description,
-          pullRequests.length > 0 &&
-            'Pull Requests relacionados:\n' +
-              pullRequests
-                .map((pr) => `- ${pr.repo} #${pr.number} — ${pr.title}\n${pr.body ?? ''}`)
-                .join('\n\n'),
-        ]
-          .filter(Boolean)
-          .join('\n\n');
-
-        return {
-          sourceType: 'jira' as const,
-          sourceRef: task.key,
-          sourceTitle: task.summary,
-          sourceUrl: task.url,
-          rawSnapshot: {
-            description,
-            pullRequests: pullRequests.map((pr) => ({
-              number: pr.number,
-              repo: pr.repo,
-              title: pr.title,
-              url: pr.url,
-            })),
-          },
-        };
-      }),
-    );
-
+    // Processa em background (busca PRs vinculadas no Jira/GitHub para cada
+    // tarefa) — a resposta volta na hora, o progresso é acompanhado na
+    // tela de revisão.
     await api.post(`/documents/${doc.id}/items`, { items });
+    trackJob(doc.id);
 
     navigate(`/documents/${doc.id}/review`);
   }
@@ -189,15 +155,18 @@ export default function NewDocumentPage() {
           <section className="mt-7">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Tarefas do Jira</h2>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => setSelectedTasks(allTasksSelected ? [] : tasks.map((t) => t.key))}
-              >
-                {allTasksSelected ? 'Limpar seleção' : 'Selecionar todas'}
-              </Button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{tasks.length} encontradas</span>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0"
+                  onClick={() => setSelectedTasks(allTasksSelected ? [] : tasks.map((t) => t.key))}
+                >
+                  {allTasksSelected ? 'Limpar seleção' : 'Selecionar todas'}
+                </Button>
+              </div>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Os Pull Requests já vinculados a cada tarefa no Jira entram automaticamente no documento.
@@ -226,7 +195,7 @@ export default function NewDocumentPage() {
             <span className="text-xs text-muted-foreground">{selectedTasks.length} tarefas selecionadas</span>
             <Button onClick={handleCreateDocument} disabled={step === 'creating' || selectedTasks.length === 0}>
               <Sparkles className={step === 'creating' ? 'star-spin h-4 w-4' : 'h-4 w-4'} strokeWidth={1.75} />
-              {step === 'creating' ? 'Buscando PRs vinculados…' : 'Gerar documento STAR'}
+              {step === 'creating' ? 'Criando documento…' : 'Gerar documento STAR'}
             </Button>
           </div>
         </>

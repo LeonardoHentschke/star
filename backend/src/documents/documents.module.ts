@@ -7,6 +7,9 @@ import { DOCUMENT_REPOSITORY } from './domain/document.repository';
 import { PdfKitDocumentExporter } from './infrastructure/pdf/pdfkit-document-exporter';
 import { PDF_EXPORTER } from './application/ports/pdf-exporter.port';
 import { AiModule } from '../ai/ai.module';
+import { GithubModule } from '../github/github.module';
+import { JiraModule } from '../jira/jira.module';
+import { ResetStuckJobsProvider } from './infrastructure/reset-stuck-jobs.provider';
 
 import { DocumentsController } from './presentation/documents.controller';
 import { CreateDocumentUseCase } from './application/use-cases/create-document.use-case';
@@ -19,9 +22,15 @@ import { UpdateDocumentItemUseCase } from './application/use-cases/update-docume
 import { ReorderDocumentItemsUseCase } from './application/use-cases/reorder-document-items.use-case';
 import { GenerateDocumentUseCase } from './application/use-cases/generate-document.use-case';
 import { ExportDocumentPdfUseCase } from './application/use-cases/export-document-pdf.use-case';
+import { SetFavoriteDocumentUseCase } from './application/use-cases/set-favorite-document.use-case';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DocumentOrmEntity, DocumentItemOrmEntity]), AiModule],
+  imports: [
+    TypeOrmModule.forFeature([DocumentOrmEntity, DocumentItemOrmEntity]),
+    AiModule,
+    GithubModule,
+    JiraModule,
+  ],
   controllers: [DocumentsController],
   providers: [
     // Wiring das portas do domínio/aplicação para suas implementações concretas
@@ -39,6 +48,8 @@ import { ExportDocumentPdfUseCase } from './application/use-cases/export-documen
     ReorderDocumentItemsUseCase,
     GenerateDocumentUseCase,
     ExportDocumentPdfUseCase,
+    SetFavoriteDocumentUseCase,
+    ResetStuckJobsProvider,
   ],
 })
 export class DocumentsModule {}

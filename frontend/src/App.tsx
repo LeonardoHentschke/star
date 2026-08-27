@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import { Moon, Star, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DocumentJobProvider } from '@/lib/document-job-context';
 import ConnectionsPage from './pages/ConnectionsPage';
 import DocumentsListPage from './pages/DocumentsListPage';
 import NewDocumentPage from './pages/NewDocumentPage';
 import ReviewDocumentPage from './pages/ReviewDocumentPage';
 import FinalDocumentPage from './pages/FinalDocumentPage';
+import DashboardPage from './pages/DashboardPage';
 
 // Estrutura de rotas alinhada às 5 telas do PRD (seção 11):
 // 1. Conexões  2. Lista de Documentos  3. Novo Documento
@@ -36,44 +39,54 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-background font-sans text-foreground">
-        <nav className="flex items-center justify-between border-b border-border px-6 py-3">
-          <div className="flex items-center gap-5">
-            <span className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
-              <Star className="h-4 w-4" strokeWidth={2.25} />
-              Star
-            </span>
-            <Link to="/" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-              Documentos
-            </Link>
-            <Link
-              to="/connections"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+      <DocumentJobProvider>
+        <div className="min-h-screen bg-background font-sans text-foreground">
+          <Toaster theme={theme} position="bottom-right" richColors />
+          <nav className="flex items-center justify-between border-b border-border px-6 py-3">
+            <div className="flex items-center gap-5">
+              <span className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
+                <Star className="h-4 w-4" strokeWidth={2.25} />
+                Star
+              </span>
+              <Link to="/" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+                Documentos
+              </Link>
+              <Link
+                to="/dashboard"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Dashboard
+              </Link>
+              <Link
+                to="/connections"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Conexões
+              </Link>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={toggle}
+              aria-label="Alternar tema"
+              className="text-muted-foreground hover:text-foreground"
             >
-              Conexões
-            </Link>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={toggle}
-            aria-label="Alternar tema"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
-        </nav>
-        <main>
-          <Routes>
-            <Route path="/" element={<DocumentsListPage />} />
-            <Route path="/connections" element={<ConnectionsPage />} />
-            <Route path="/documents/new" element={<NewDocumentPage />} />
-            <Route path="/documents/:id/review" element={<ReviewDocumentPage />} />
-            <Route path="/documents/:id" element={<FinalDocumentPage />} />
-          </Routes>
-        </main>
-      </div>
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+          </nav>
+          <main>
+            <Routes>
+              <Route path="/" element={<DocumentsListPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/connections" element={<ConnectionsPage />} />
+              <Route path="/documents/new" element={<NewDocumentPage />} />
+              <Route path="/documents/:id/review" element={<ReviewDocumentPage />} />
+              <Route path="/documents/:id" element={<FinalDocumentPage />} />
+            </Routes>
+          </main>
+        </div>
+      </DocumentJobProvider>
     </BrowserRouter>
   );
 }

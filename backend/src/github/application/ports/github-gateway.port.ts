@@ -14,6 +14,9 @@ export interface GithubPullRequestDto {
   url: string;
   createdAt: string;
   mergedAt: string | null;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
 }
 
 export interface ConnectionStatus {

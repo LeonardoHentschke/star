@@ -25,10 +25,14 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: star-backend
+    command: npm run start:dev
     ports:
       - "3000:3000"
     env_file:
       - .env
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
     depends_on:
       db:
         condition: service_healthy
@@ -43,6 +47,9 @@ services:
       - "5173:5173"
     env_file:
       - .env
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
     restart: unless-stopped

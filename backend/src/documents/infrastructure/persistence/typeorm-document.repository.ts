@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Document } from '../../domain/document.entity';
 import { DocumentItem } from '../../domain/document-item.entity';
-import { DocumentRepository } from '../../domain/document.repository';
+import { DocumentJobStateUpdate, DocumentRepository } from '../../domain/document.repository';
 import { Period } from '../../domain/value-objects/period.vo';
 import { StarContent } from '../../domain/value-objects/star-content.vo';
 import { SourceReference } from '../../domain/value-objects/source-reference.vo';
@@ -44,6 +44,30 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
     await this.ormRepo.delete({ id });
   }
 
+  async clearFavorite(): Promise<void> {
+    await this.ormRepo.update({ favorite: true }, { favorite: false });
+  }
+
+  async updateJobState(id: string, state: DocumentJobStateUpdate): Promise<boolean> {
+    // `jobPayload` (coluna json) não bate exatamente com o tipo que o TypeORM
+    // infere pra QueryDeepPartialEntity — cast pragmático, sem perda real de
+    // segurança de tipos (o shape de `state` já é validado por DocumentJobStateUpdate).
+    const result = await this.ormRepo.update({ id }, state as Parameters<typeof this.ormRepo.update>[1]);
+    return (result.affected ?? 0) > 0;
+  }
+
+  async failAllProcessingJobs(message: string): Promise<void> {
+    await this.ormRepo.update({ jobStatus: 'processing' }, { jobStatus: 'failed', jobError: message });
+  }
+
+  async saveItem(documentId: string, item: DocumentItem): Promise<boolean> {
+    const exists = await this.ormRepo.existsBy({ id: documentId });
+    if (!exists) return false;
+
+    await this.ormRepo.manager.getRepository(DocumentItemOrmEntity).save(this.itemToOrm(documentId, item));
+    return true;
+  }
+
   private toOrm(document: Document): DocumentOrmEntity {
     const orm = new DocumentOrmEntity();
     orm.id = document.id;
@@ -51,23 +75,38 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
     orm.periodStart = document.period.start;
     orm.periodEnd = document.period.end;
     orm.executiveSummary = document.executiveSummary;
-    orm.items = document.items.map((item) => {
-      const itemOrm = new DocumentItemOrmEntity();
-      itemOrm.id = item.id;
-      itemOrm.documentId = document.id;
-      itemOrm.sourceType = item.source.sourceType;
-      itemOrm.sourceRef = item.source.sourceRef;
-      itemOrm.sourceTitle = item.source.title;
-      itemOrm.sourceUrl = item.source.url;
-      itemOrm.rawSnapshot = item.source.rawSnapshot;
-      itemOrm.situation = item.star.situation;
-      itemOrm.task = item.star.task;
-      itemOrm.action = item.star.action;
-      itemOrm.result = item.star.result;
-      itemOrm.order = item.order;
-      return itemOrm;
-    });
+    orm.favorite = document.favorite;
+    orm.jobStatus = document.jobStatus;
+    orm.jobType = document.jobType;
+    orm.jobError = document.jobError;
+    orm.jobProgressDone = document.jobProgress?.done ?? null;
+    orm.jobProgressTotal = document.jobProgress?.total ?? null;
+    orm.jobPayload = document.jobPayload;
+    orm.items = document.items.map((item) => this.itemToOrm(document.id, item));
     return orm;
+  }
+
+  private itemToOrm(documentId: string, item: DocumentItem): DocumentItemOrmEntity {
+    const itemOrm = new DocumentItemOrmEntity();
+    itemOrm.id = item.id;
+    itemOrm.documentId = documentId;
+    itemOrm.sourceType = item.source.sourceType;
+    itemOrm.sourceRef = item.source.sourceRef;
+    itemOrm.sourceTitle = item.source.title;
+    itemOrm.sourceUrl = item.source.url;
+    itemOrm.rawSnapshot = item.source.rawSnapshot;
+    itemOrm.jiraStatus = item.source.jiraStatus;
+    itemOrm.jiraDone = item.source.jiraDone;
+    itemOrm.merged = item.source.merged;
+    itemOrm.additions = item.source.additions;
+    itemOrm.deletions = item.source.deletions;
+    itemOrm.changedFiles = item.source.changedFiles;
+    itemOrm.situation = item.star.situation;
+    itemOrm.task = item.star.task;
+    itemOrm.action = item.star.action;
+    itemOrm.result = item.star.result;
+    itemOrm.order = item.order;
+    return itemOrm;
   }
 
   private toDomain(row: DocumentOrmEntity): Document {
@@ -82,6 +121,12 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
             title: itemRow.sourceTitle,
             url: itemRow.sourceUrl,
             rawSnapshot: itemRow.rawSnapshot,
+            jiraStatus: itemRow.jiraStatus,
+            jiraDone: itemRow.jiraDone,
+            merged: itemRow.merged,
+            additions: itemRow.additions,
+            deletions: itemRow.deletions,
+            changedFiles: itemRow.changedFiles,
           }),
           star: StarContent.create({
             situation: itemRow.situation,
@@ -100,6 +145,15 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
       executiveSummary: row.executiveSummary,
       items,
       createdAt: row.createdAt,
+      favorite: row.favorite,
+      jobStatus: row.jobStatus,
+      jobType: row.jobType,
+      jobError: row.jobError,
+      jobProgress:
+        row.jobProgressDone !== null && row.jobProgressTotal !== null
+          ? { done: row.jobProgressDone, total: row.jobProgressTotal }
+          : null,
+      jobPayload: row.jobPayload,
     });
   }
 }

@@ -13,6 +13,12 @@ export class SourceReference {
     public readonly title: string,
     public readonly url: string | null,
     public readonly rawSnapshot: Record<string, unknown> | null,
+    public readonly jiraStatus: string | null,
+    public readonly jiraDone: boolean | null,
+    public readonly merged: boolean | null,
+    public readonly additions: number,
+    public readonly deletions: number,
+    public readonly changedFiles: number,
   ) {}
 
   static create(fields: {
@@ -21,6 +27,12 @@ export class SourceReference {
     title: string;
     url?: string | null;
     rawSnapshot?: Record<string, unknown> | null;
+    jiraStatus?: string | null;
+    jiraDone?: boolean | null;
+    merged?: boolean | null;
+    additions?: number;
+    deletions?: number;
+    changedFiles?: number;
   }): SourceReference {
     return new SourceReference(
       fields.sourceType,
@@ -28,6 +40,12 @@ export class SourceReference {
       fields.title,
       fields.url ?? null,
       fields.rawSnapshot ?? null,
+      fields.jiraStatus ?? null,
+      fields.jiraDone ?? null,
+      fields.merged ?? null,
+      fields.additions ?? 0,
+      fields.deletions ?? 0,
+      fields.changedFiles ?? 0,
     );
   }
 

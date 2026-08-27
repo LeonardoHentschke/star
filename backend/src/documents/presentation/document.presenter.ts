@@ -13,6 +13,11 @@ export class DocumentPresenter {
       periodStart: document.period.start,
       periodEnd: document.period.end,
       createdAt: document.createdAt,
+      favorite: document.favorite,
+      jobStatus: document.jobStatus,
+      jobType: document.jobType,
+      jobError: document.jobError,
+      jobProgress: document.jobProgress,
     };
   }
 

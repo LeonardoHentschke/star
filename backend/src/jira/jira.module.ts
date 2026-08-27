@@ -14,5 +14,6 @@ import { JiraController } from './presentation/jira.controller';
     ListJiraTasksUseCase,
     ListJiraLinkedPullRequestsUseCase,
   ],
+  exports: [JIRA_GATEWAY],
 })
 export class JiraModule {}

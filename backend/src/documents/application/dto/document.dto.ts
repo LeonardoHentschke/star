@@ -15,12 +15,19 @@ export const CreateDocumentSchema = z.object({
 export type CreateDocumentDto = z.infer<typeof CreateDocumentSchema>;
 
 // POST /documents/:id/items — selecionar itens de origem (Jira/GitHub) para o documento (RF06, RF07)
+// O enriquecimento com dados do GitHub (additions/deletions/merged, etc.) e a busca das
+// PRs vinculadas de cada tarefa Jira (via `jiraIssueId`) são feitos no backend
+// (AddDocumentItemsUseCase), não recebidos do cliente — evita payloads grandes e muitas
+// requisições paralelas do frontend quando há centenas de tarefas selecionadas.
 export const AddDocumentItemSchema = z.object({
   sourceType: z.enum(['jira', 'github_pr']),
   sourceRef: z.string().min(1),
   sourceTitle: z.string().min(1),
   sourceUrl: z.string().url().nullable().optional(),
-  rawSnapshot: z.record(z.unknown()).nullable().optional(),
+  jiraIssueId: z.string().optional(),
+  jiraStatus: z.string().nullable().optional(),
+  jiraStatusCategory: z.enum(['new', 'indeterminate', 'done']).nullable().optional(),
+  description: z.string().nullable().optional(),
 });
 export type AddDocumentItemDto = z.infer<typeof AddDocumentItemSchema>;
 
@@ -52,6 +59,12 @@ export const GenerateDocumentSchema = z.object({
   regenerateSummary: z.boolean().default(true),
 });
 export type GenerateDocumentDto = z.infer<typeof GenerateDocumentSchema>;
+
+// PATCH /documents/:id/favorite — marcar/desmarcar documento como favorito (tela Dashboard)
+export const SetFavoriteDocumentSchema = z.object({
+  favorite: z.boolean(),
+});
+export type SetFavoriteDocumentDto = z.infer<typeof SetFavoriteDocumentSchema>;
 
 // PATCH /documents/:id/items/reorder — reordenar itens manualmente
 export const ReorderDocumentItemsSchema = z.object({

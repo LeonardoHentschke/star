@@ -5,8 +5,11 @@ import {
   ConnectionStatus,
   JiraGatewayPort,
   JiraLinkedPullRequestDto,
+  JiraStatusCategory,
   JiraTaskDto,
 } from '../application/ports/jira-gateway.port';
+
+const VALID_STATUS_CATEGORIES: JiraStatusCategory[] = ['new', 'indeterminate', 'done'];
 
 @Injectable()
 export class JiraGateway implements JiraGatewayPort {
@@ -35,24 +38,41 @@ export class JiraGateway implements JiraGatewayPort {
   }
 
   async findMyTasks(periodStart: string, periodEnd: string): Promise<JiraTaskDto[]> {
-    const jql = `assignee = currentUser() AND updated >= "${periodStart}" AND updated <= "${periodEnd}" ORDER BY updated DESC`;
+    // Inclui "assignee was" para não perder tarefas que o usuário trabalhou
+    // mas que foram reatribuídas depois; e usa hora explícita no fim do
+    // período porque o Jira trata data sem hora como "00:00", o que corta
+    // fora quase o dia inteiro de periodEnd.
+    const jql = `(assignee = currentUser() OR assignee was currentUser()) AND updated >= "${periodStart} 00:00" AND updated <= "${periodEnd} 23:59" ORDER BY updated DESC`;
 
     try {
-      const { data } = await this.client.post('/search/jql', {
-        jql,
-        maxResults: 100,
-        fields: ['summary', 'description', 'status', 'updated'],
-      });
+      const issues: any[] = [];
+      let nextPageToken: string | undefined;
 
-      return data.issues.map((issue: any) => ({
-        id: issue.id,
-        key: issue.key,
-        summary: issue.fields.summary,
-        description: this.extractPlainText(issue.fields.description),
-        status: issue.fields.status?.name ?? '',
-        updated: issue.fields.updated,
-        url: `https://${this.domain}/browse/${issue.key}`,
-      }));
+      do {
+        const { data } = await this.client.post('/search/jql', {
+          jql,
+          maxResults: 100,
+          fields: ['summary', 'description', 'status', 'updated'],
+          ...(nextPageToken ? { nextPageToken } : {}),
+        });
+
+        issues.push(...data.issues);
+        nextPageToken = data.isLast ? undefined : data.nextPageToken;
+      } while (nextPageToken);
+
+      return issues.map((issue: any) => {
+        const categoryKey = issue.fields.status?.statusCategory?.key;
+        return {
+          id: issue.id,
+          key: issue.key,
+          summary: issue.fields.summary,
+          description: this.extractPlainText(issue.fields.description),
+          status: issue.fields.status?.name ?? '',
+          statusCategory: VALID_STATUS_CATEGORIES.includes(categoryKey) ? categoryKey : 'new',
+          updated: issue.fields.updated,
+          url: `https://${this.domain}/browse/${issue.key}`,
+        };
+      });
     } catch (err) {
       throw new InternalServerErrorException(`Falha ao buscar tarefas do Jira: ${this.describeError(err)}`);
     }

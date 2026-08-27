@@ -3,6 +3,8 @@ import { Response } from 'express';
 import {
   DocumentDomainError,
   DocumentItemNotFoundError,
+  DocumentJobAlreadyRunningError,
+  DocumentJobNotResumableError,
   DocumentNotFoundError,
   InvalidPeriodError,
 } from '../documents/domain/errors/document-domain.errors';
@@ -23,7 +25,9 @@ export class DomainExceptionFilter implements ExceptionFilter {
         ? HttpStatus.NOT_FOUND
         : exception instanceof InvalidPeriodError
           ? HttpStatus.BAD_REQUEST
-          : HttpStatus.UNPROCESSABLE_ENTITY;
+          : exception instanceof DocumentJobAlreadyRunningError || exception instanceof DocumentJobNotResumableError
+            ? HttpStatus.CONFLICT
+            : HttpStatus.UNPROCESSABLE_ENTITY;
 
     res.status(status).json({ message: exception.message });
   }

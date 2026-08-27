@@ -12,6 +12,7 @@ interface DocumentSummary {
   periodStart: string;
   periodEnd: string;
   createdAt: string;
+  jobStatus: 'idle' | 'processing' | 'failed';
 }
 
 // Tela 2 do PRD: lista de documentos criados (RF10)
@@ -91,7 +92,7 @@ export default function DocumentsListPage() {
               className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3.5 transition-colors has-[a:hover]:bg-accent"
             >
               <Link
-                to={`/documents/${doc.id}`}
+                to={doc.jobStatus === 'idle' ? `/documents/${doc.id}` : `/documents/${doc.id}/review`}
                 className="group flex min-w-0 flex-1 items-center justify-between gap-4"
               >
                 <div className="flex min-w-0 flex-col gap-1">
