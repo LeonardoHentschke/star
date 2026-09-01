@@ -25,13 +25,33 @@ export interface ConnectionStatus {
   message: string;
 }
 
+export interface JiraTaskQueryDto {
+  periodStart: string;
+  periodEnd: string;
+  status?: string[];
+  priority?: string[];
+  issueType?: string[];
+}
+
+export interface JiraFilterOptionDto {
+  id: string;
+  name: string;
+}
+
+export interface JiraTaskFiltersDto {
+  statuses: JiraFilterOptionDto[];
+  priorities: JiraFilterOptionDto[];
+  issueTypes: JiraFilterOptionDto[];
+}
+
 /**
  * Porta (interface): acesso ao Jira Cloud. Implementada em
  * infrastructure/jira.gateway.ts usando a API REST do Jira.
  */
 export interface JiraGatewayPort {
   testConnection(): Promise<ConnectionStatus>;
-  findMyTasks(periodStart: string, periodEnd: string): Promise<JiraTaskDto[]>;
+  findMyTasks(query: JiraTaskQueryDto): Promise<JiraTaskDto[]>;
+  listTaskFilters(): Promise<JiraTaskFiltersDto>;
   findLinkedPullRequestUrls(issueId: string): Promise<JiraLinkedPullRequestDto[]>;
 }
 

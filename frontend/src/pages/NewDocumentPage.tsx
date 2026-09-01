@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 interface JiraTask {
   id: string;
@@ -20,6 +21,19 @@ interface JiraTask {
   url: string;
 }
 
+interface JiraFilterOption {
+  id: string;
+  name: string;
+}
+
+interface JiraTaskFilters {
+  statuses: JiraFilterOption[];
+  priorities: JiraFilterOption[];
+  issueTypes: JiraFilterOption[];
+}
+
+const EMPTY_FILTERS: JiraTaskFilters = { statuses: [], priorities: [], issueTypes: [] };
+
 // Tela 3 do PRD: definir título/período e selecionar tarefas Jira — os PRs
 // vinculados a cada tarefa (app "GitHub for Jira") entram automaticamente.
 export default function NewDocumentPage() {
@@ -29,6 +43,10 @@ export default function NewDocumentPage() {
   const [title, setTitle] = useState('');
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
+  const [status, setStatus] = useState<string[]>([]);
+  const [priority, setPriority] = useState<string[]>([]);
+  const [issueType, setIssueType] = useState<string[]>([]);
+  const [filterOptions, setFilterOptions] = useState<JiraTaskFilters>(EMPTY_FILTERS);
 
   const [tasks, setTasks] = useState<JiraTask[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -36,10 +54,25 @@ export default function NewDocumentPage() {
   const [step, setStep] = useState<'period' | 'select' | 'creating'>('period');
   const [searching, setSearching] = useState(false);
 
+  useEffect(() => {
+    api
+      .get<JiraTaskFilters>('/jira/task-filters')
+      .then(({ data }) => setFilterOptions(data))
+      .catch(() => setFilterOptions(EMPTY_FILTERS));
+  }, []);
+
   async function handleSearch() {
     setSearching(true);
     try {
-      const { data } = await api.get<JiraTask[]>('/jira/tasks', { params: { periodStart, periodEnd } });
+      const { data } = await api.get<JiraTask[]>('/jira/tasks', {
+        params: {
+          periodStart,
+          periodEnd,
+          status: status.length ? status.join(',') : undefined,
+          priority: priority.length ? priority.join(',') : undefined,
+          issueType: issueType.length ? issueType.join(',') : undefined,
+        },
+      });
       setTasks(data);
       setStep('select');
     } finally {
@@ -122,6 +155,35 @@ export default function NewDocumentPage() {
               <div className="flex flex-col gap-1.5">
                 <Label>Fim do período</Label>
                 <DatePicker value={periodEnd} onChange={setPeriodEnd} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Status</Label>
+                <MultiSelect
+                  placeholder="Todos"
+                  value={status}
+                  onChange={setStatus}
+                  options={filterOptions.statuses.map((s) => ({ value: s.id, label: s.name }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Prioridade</Label>
+                <MultiSelect
+                  placeholder="Todas"
+                  value={priority}
+                  onChange={setPriority}
+                  options={filterOptions.priorities.map((p) => ({ value: p.id, label: p.name }))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Tipo de item</Label>
+                <MultiSelect
+                  placeholder="Todos"
+                  value={issueType}
+                  onChange={setIssueType}
+                  options={filterOptions.issueTypes.map((t) => ({ value: t.id, label: t.name }))}
+                />
               </div>
             </div>
           </div>
