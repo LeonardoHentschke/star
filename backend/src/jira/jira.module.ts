@@ -3,6 +3,7 @@ import { JiraGateway } from './infrastructure/jira.gateway';
 import { JIRA_GATEWAY } from './application/ports/jira-gateway.port';
 import { TestJiraConnectionUseCase } from './application/use-cases/test-jira-connection.use-case';
 import { ListJiraTasksUseCase } from './application/use-cases/list-jira-tasks.use-case';
+import { ListJiraTaskFiltersUseCase } from './application/use-cases/list-jira-task-filters.use-case';
 import { ListJiraLinkedPullRequestsUseCase } from './application/use-cases/list-jira-linked-pull-requests.use-case';
 import { JiraController } from './presentation/jira.controller';
 
@@ -12,6 +13,7 @@ import { JiraController } from './presentation/jira.controller';
     { provide: JIRA_GATEWAY, useClass: JiraGateway },
     TestJiraConnectionUseCase,
     ListJiraTasksUseCase,
+    ListJiraTaskFiltersUseCase,
     ListJiraLinkedPullRequestsUseCase,
   ],
   exports: [JIRA_GATEWAY],
