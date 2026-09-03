@@ -124,7 +124,7 @@ export default function NewDocumentPage() {
   const canSearch = Boolean(title && periodStart && periodEnd);
 
   return (
-    <div className={`mx-auto px-8 py-10 ${step === 'period' ? 'max-w-2xl' : 'max-w-4xl'}`}>
+    <div className="mx-auto max-w-6xl px-8 py-10">
       <header className="flex flex-col gap-1.5">
         <Link to="/" className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-[13px] w-[13px]" strokeWidth={1.75} />

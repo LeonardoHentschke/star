@@ -44,7 +44,10 @@ function MultiSelect({ options, value, onChange, placeholder }: MultiSelectProps
           <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="scrollbar-thin w-64 max-h-72 gap-0.5 overflow-y-auto p-2">
+      <PopoverContent
+        align="start"
+        className="scrollbar-thin w-(--radix-popover-trigger-width) max-h-[270px] gap-0.5 overflow-y-auto p-2"
+      >
         {options.length === 0 ? (
           <p className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma opção disponível.</p>
         ) : (

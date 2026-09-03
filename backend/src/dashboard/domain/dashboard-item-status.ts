@@ -39,8 +39,9 @@ export function linesChanged(item: DashboardItem): number {
 // Filtro de data opcional dentro de um documento: a maioria dos itens não tem
 // data própria — só as PRs linkadas têm (`createdAt`/`mergedAt`). Um item passa
 // se nenhum filtro foi informado, ou se pelo menos uma data de suas PRs cai no
-// intervalo. Itens sem PR linkada (ex: tarefa Jira sem PR) não têm como ser
-// avaliados, então nunca são excluídos pelo filtro.
+// intervalo. Itens sem PR linkada (ex: tarefa Jira sem PR) não têm nenhuma data
+// conhecida, então são excluídos sempre que um filtro é aplicado — não dá pra
+// confirmar que estão dentro do período.
 export function itemMatchesDateFilter(
   item: DashboardItem,
   periodStart?: string,
@@ -49,7 +50,7 @@ export function itemMatchesDateFilter(
   if (!periodStart && !periodEnd) return true;
 
   const prs = linkedPullRequests(item);
-  if (prs.length === 0) return true;
+  if (prs.length === 0) return false;
 
   return prs.some((pr) =>
     [pr.createdAt, pr.mergedAt]

@@ -354,6 +354,7 @@ export default function DashboardPage() {
                       innerRadius={50}
                       outerRadius={75}
                       strokeWidth={2}
+                      isAnimationActive={false}
                     >
                       {summary.byStatus.map((entry, i) => (
                         <Cell key={entry.status} fill={STATUS_COLORS[i % STATUS_COLORS.length]} />
