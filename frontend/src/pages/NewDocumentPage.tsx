@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search, Sparkles } from 'lucide-react';
+import { ChevronLeft, Loader2, Search, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatDateShort } from '@/lib/utils';
 import { useTrackDocumentJob } from '@/lib/document-job-context';
@@ -10,6 +10,16 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 interface JiraTask {
   id: string;
@@ -34,6 +44,26 @@ interface JiraTaskFilters {
 
 const EMPTY_FILTERS: JiraTaskFilters = { statuses: [], priorities: [], issueTypes: [] };
 
+// Janela de páginas com "..." quando há muitas páginas: sempre mostra a
+// primeira, a última, a atual e as 2 vizinhas de cada lado.
+function getPageNumbers(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 1) return [1];
+
+  const pages = new Set<number>([1, total, current]);
+  for (let offset = 1; offset <= 2; offset++) {
+    if (current - offset >= 1) pages.add(current - offset);
+    if (current + offset <= total) pages.add(current + offset);
+  }
+
+  const sorted = Array.from(pages).sort((a, b) => a - b);
+  const result: (number | 'ellipsis')[] = [];
+  sorted.forEach((page, i) => {
+    if (i > 0 && page - sorted[i - 1] > 1) result.push('ellipsis');
+    result.push(page);
+  });
+  return result;
+}
+
 // Tela 3 do PRD: definir título/período e selecionar tarefas Jira — os PRs
 // vinculados a cada tarefa (app "GitHub for Jira") entram automaticamente.
 export default function NewDocumentPage() {
@@ -50,6 +80,8 @@ export default function NewDocumentPage() {
 
   const [tasks, setTasks] = useState<JiraTask[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [step, setStep] = useState<'period' | 'select' | 'creating'>('period');
   const [searching, setSearching] = useState(false);
@@ -74,6 +106,7 @@ export default function NewDocumentPage() {
         },
       });
       setTasks(data);
+      setCurrentPage(1);
       setStep('select');
     } finally {
       setSearching(false);
@@ -119,9 +152,23 @@ export default function NewDocumentPage() {
     setSelectedTasks((prev) => (checked ? [...prev, key] : prev.filter((k) => k !== key)));
   }
 
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setCurrentPage(1);
+  }
+
   const allTasksSelected = tasks.length > 0 && selectedTasks.length === tasks.length;
 
   const canSearch = Boolean(title && periodStart && periodEnd);
+
+  const totalPages = Math.max(1, Math.ceil(tasks.length / pageSize));
+
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return tasks.slice(start, start + pageSize);
+  }, [tasks, currentPage, pageSize]);
+
+  const pageNumbers = getPageNumbers(currentPage, totalPages);
 
   return (
     <div className="mx-auto max-w-6xl px-8 py-10">
@@ -190,7 +237,11 @@ export default function NewDocumentPage() {
           <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <span className="text-xs text-muted-foreground">Preencha os três campos para continuar.</span>
             <Button onClick={handleSearch} disabled={!canSearch || searching}>
-              <Search className={searching ? 'star-spin h-4 w-4' : 'h-4 w-4'} strokeWidth={1.75} />
+              {searching ? (
+                <Loader2 className="star-spin h-4 w-4" strokeWidth={1.75} />
+              ) : (
+                <Search className="h-4 w-4" strokeWidth={1.75} />
+              )}
               {searching ? 'Buscando tarefas…' : 'Buscar tarefas do Jira'}
             </Button>
           </div>
@@ -215,26 +266,23 @@ export default function NewDocumentPage() {
           </Button>
 
           <section className="mt-7">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <h2 className="text-sm font-semibold">Tarefas do Jira</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">{tasks.length} encontradas</span>
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={() => setSelectedTasks(allTasksSelected ? [] : tasks.map((t) => t.key))}
-                >
-                  {allTasksSelected ? 'Limpar seleção' : 'Selecionar todas'}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => setSelectedTasks(allTasksSelected ? [] : tasks.map((t) => t.key))}
+              >
+                {allTasksSelected ? 'Limpar seleção' : 'Selecionar todas'}
+              </Button>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
               Os Pull Requests já vinculados a cada tarefa no Jira entram automaticamente no documento.
             </p>
             <div className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-              {tasks.map((task) => (
+              {paginatedTasks.map((task) => (
                 <Label
                   key={task.key}
                   className="flex cursor-pointer items-start gap-3 px-4 py-3 font-normal text-inherit transition-colors hover:bg-accent"
@@ -250,6 +298,78 @@ export default function NewDocumentPage() {
                   <span className="text-[13px] text-card-foreground">{task.summary}</span>
                 </Label>
               ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs text-muted-foreground">{tasks.length} encontradas</span>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Por página</Label>
+                  <Select value={String(pageSize)} onValueChange={(v) => handlePageSizeChange(Number(v))}>
+                    <SelectTrigger className="h-7 w-[68px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        text="Anterior"
+                        aria-disabled={currentPage === 1}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) setCurrentPage((p) => p - 1);
+                        }}
+                      />
+                    </PaginationItem>
+
+                    {pageNumbers.map((page, idx) =>
+                      page === 'ellipsis' ? (
+                        <PaginationItem key={`ellipsis-${idx}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            href="#"
+                            isActive={page === currentPage}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage(page);
+                            }}
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ),
+                    )}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        text="Próxima"
+                        aria-disabled={currentPage === totalPages}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
             </div>
           </section>
 

@@ -20,8 +20,8 @@ interface DocumentJobResponse {
 }
 
 const JOB_TYPE_LABEL: Record<DocumentJobType, string> = {
-  add_items: 'Adicionar tarefas',
-  generate: 'Gerar com IA',
+  add_items: 'Tarefas adicionadas com sucesso',
+  generate: 'Conteúdos gerados com IA',
 };
 
 const POLL_INTERVAL_MS = 2000;
@@ -63,7 +63,7 @@ export function DocumentJobProvider({ children }: { children: ReactNode }) {
         if (state.status !== 'processing') {
           setTrackedIds((prev) => prev.filter((id) => id !== documentId));
           const label = state.type ? JOB_TYPE_LABEL[state.type] : 'Processamento';
-          if (state.status === 'idle') toast.success(`${label} concluído.`);
+          if (state.status === 'idle') toast.success(`${label}.`);
           if (state.status === 'failed') toast.error(`${label} falhou: ${state.error ?? 'erro desconhecido.'}`);
         }
       }
