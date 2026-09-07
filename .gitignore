@@ -18,3 +18,8 @@ npm-debug.log*
 .DS_Store
 .vscode/
 .idea/
+
+# Claude Code local tooling
+.agents/
+.claude/
+skills-lock.json
