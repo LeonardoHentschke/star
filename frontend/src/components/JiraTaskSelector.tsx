@@ -1,0 +1,325 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Loader2, Search } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+
+export interface JiraTask {
+  id: string;
+  key: string;
+  summary: string;
+  description: string | null;
+  status: string;
+  statusCategory: 'new' | 'indeterminate' | 'done';
+  url: string;
+}
+
+interface JiraFilterOption {
+  id: string;
+  name: string;
+}
+
+interface JiraTaskFilters {
+  statuses: JiraFilterOption[];
+  priorities: JiraFilterOption[];
+  issueTypes: JiraFilterOption[];
+}
+
+const EMPTY_FILTERS: JiraTaskFilters = { statuses: [], priorities: [], issueTypes: [] };
+
+function getPageNumbers(current: number, total: number): (number | 'ellipsis')[] {
+  if (total <= 1) return [1];
+
+  const pages = new Set<number>([1, total, current]);
+  for (let offset = 1; offset <= 2; offset++) {
+    if (current - offset >= 1) pages.add(current - offset);
+    if (current + offset <= total) pages.add(current + offset);
+  }
+
+  const sorted = Array.from(pages).sort((a, b) => a - b);
+  const result: (number | 'ellipsis')[] = [];
+  sorted.forEach((page, i) => {
+    if (i > 0 && page - sorted[i - 1] > 1) result.push('ellipsis');
+    result.push(page);
+  });
+  return result;
+}
+
+interface JiraTaskSelectorProps {
+  initialPeriodStart?: string;
+  initialPeriodEnd?: string;
+  submitLabel: string;
+  submittingLabel: string;
+  submitting?: boolean;
+  onSubmit: (tasks: JiraTask[]) => void | Promise<void>;
+}
+
+export function JiraTaskSelector({
+  initialPeriodStart = '',
+  initialPeriodEnd = '',
+  submitLabel,
+  submittingLabel,
+  submitting = false,
+  onSubmit,
+}: JiraTaskSelectorProps) {
+  const [periodStart, setPeriodStart] = useState(initialPeriodStart);
+  const [periodEnd, setPeriodEnd] = useState(initialPeriodEnd);
+  const [status, setStatus] = useState<string[]>([]);
+  const [priority, setPriority] = useState<string[]>([]);
+  const [issueType, setIssueType] = useState<string[]>([]);
+  const [filterOptions, setFilterOptions] = useState<JiraTaskFilters>(EMPTY_FILTERS);
+
+  const [tasks, setTasks] = useState<JiraTask[]>([]);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const [searched, setSearched] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<JiraTaskFilters>('/jira/task-filters')
+      .then(({ data }) => setFilterOptions(data))
+      .catch(() => setFilterOptions(EMPTY_FILTERS));
+  }, []);
+
+  async function handleSearch() {
+    setSearching(true);
+    try {
+      const { data } = await api.get<JiraTask[]>('/jira/tasks', {
+        params: {
+          periodStart,
+          periodEnd,
+          status: status.length ? status.join(',') : undefined,
+          priority: priority.length ? priority.join(',') : undefined,
+          issueType: issueType.length ? issueType.join(',') : undefined,
+        },
+      });
+      setTasks(data);
+      setSelectedTasks([]);
+      setCurrentPage(1);
+      setSearched(true);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function toggleTask(key: string, checked: boolean) {
+    setSelectedTasks((prev) => (checked ? [...prev, key] : prev.filter((k) => k !== key)));
+  }
+
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
+    setCurrentPage(1);
+  }
+
+  async function handleSubmit() {
+    const selected = tasks.filter((t) => selectedTasks.includes(t.key));
+    await onSubmit(selected);
+  }
+
+  const allTasksSelected = tasks.length > 0 && selectedTasks.length === tasks.length;
+  const canSearch = Boolean(periodStart && periodEnd);
+  const totalPages = Math.max(1, Math.ceil(tasks.length / pageSize));
+
+  const paginatedTasks = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return tasks.slice(start, start + pageSize);
+  }, [tasks, currentPage, pageSize]);
+
+  const pageNumbers = getPageNumbers(currentPage, totalPages);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label>Início do período</Label>
+            <DatePicker value={periodStart} onChange={setPeriodStart} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Fim do período</Label>
+            <DatePicker value={periodEnd} onChange={setPeriodEnd} />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1.5">
+            <Label>Status</Label>
+            <MultiSelect
+              placeholder="Todos"
+              value={status}
+              onChange={setStatus}
+              options={filterOptions.statuses.map((s) => ({ value: s.id, label: s.name }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Prioridade</Label>
+            <MultiSelect
+              placeholder="Todas"
+              value={priority}
+              onChange={setPriority}
+              options={filterOptions.priorities.map((p) => ({ value: p.id, label: p.name }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Tipo de item</Label>
+            <MultiSelect
+              placeholder="Todos"
+              value={issueType}
+              onChange={setIssueType}
+              options={filterOptions.issueTypes.map((t) => ({ value: t.id, label: t.name }))}
+            />
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <span className="text-xs text-muted-foreground">Preencha o período para continuar.</span>
+        <Button onClick={handleSearch} disabled={!canSearch || searching}>
+          {searching ? (
+            <Loader2 className="star-spin h-4 w-4" strokeWidth={1.75} />
+          ) : (
+            <Search className="h-4 w-4" strokeWidth={1.75} />
+          )}
+          {searching ? 'Buscando tarefas…' : 'Buscar tarefas do Jira'}
+        </Button>
+      </div>
+
+      {searched && (
+        <>
+          <section>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <h2 className="text-sm font-semibold">Tarefas do Jira</h2>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => setSelectedTasks(allTasksSelected ? [] : tasks.map((t) => t.key))}
+              >
+                {allTasksSelected ? 'Limpar seleção' : 'Selecionar todas'}
+              </Button>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Os Pull Requests já vinculados a cada tarefa no Jira entram automaticamente.
+            </p>
+            <div className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+              {paginatedTasks.length === 0 && (
+                <p className="px-4 py-6 text-center text-sm text-muted-foreground">Nenhuma tarefa encontrada.</p>
+              )}
+              {paginatedTasks.map((task) => (
+                <Label
+                  key={task.key}
+                  className="flex cursor-pointer items-start gap-3 px-4 py-3 font-normal text-inherit transition-colors hover:bg-accent"
+                >
+                  <Checkbox
+                    className="-mt-0.5"
+                    checked={selectedTasks.includes(task.key)}
+                    onCheckedChange={(checked) => toggleTask(task.key, checked === true)}
+                  />
+                  <span className="w-20 shrink-0 whitespace-nowrap font-mono text-[12px] font-medium text-blue-700 dark:text-blue-400">
+                    {task.key}
+                  </span>
+                  <span className="text-[13px] text-card-foreground">{task.summary}</span>
+                </Label>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs text-muted-foreground">{tasks.length} encontradas</span>
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-xs text-muted-foreground">Por página</Label>
+                  <Select value={String(pageSize)} onValueChange={(v) => handlePageSizeChange(Number(v))}>
+                    <SelectTrigger className="h-7 w-[68px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {totalPages > 1 && (
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        text="Anterior"
+                        aria-disabled={currentPage === 1}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage > 1) setCurrentPage((p) => p - 1);
+                        }}
+                      />
+                    </PaginationItem>
+
+                    {pageNumbers.map((page, idx) =>
+                      page === 'ellipsis' ? (
+                        <PaginationItem key={`ellipsis-${idx}`}>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      ) : (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            href="#"
+                            isActive={page === currentPage}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentPage(page);
+                            }}
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ),
+                    )}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        text="Próxima"
+                        aria-disabled={currentPage === totalPages}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : undefined}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (currentPage < totalPages) setCurrentPage((p) => p + 1);
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </div>
+          </section>
+
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-5">
+            <span className="text-xs text-muted-foreground">{selectedTasks.length} tarefas selecionadas</span>
+            <Button onClick={handleSubmit} disabled={submitting || selectedTasks.length === 0}>
+              {submitting ? <Loader2 className="star-spin h-4 w-4" strokeWidth={1.75} /> : null}
+              {submitting ? submittingLabel : submitLabel}
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

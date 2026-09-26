@@ -8,6 +8,7 @@ import {
   ArrowUp,
   FileText,
   GitPullRequest,
+  ListPlus,
   Loader2,
   Sparkles,
   SquareChevronRight,
@@ -21,6 +22,7 @@ import { Badge, badgeVariants } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { DeleteDocumentButton } from '@/components/DeleteDocumentButton';
+import { JiraTaskSelector, type JiraTask } from '@/components/JiraTaskSelector';
 
 interface LinkedPullRequest {
   number: number;
@@ -63,11 +65,12 @@ const JOB_TYPE_LABEL = {
   generate: 'Gerando com IA…',
 };
 
-// Tela 4 do PRD: revisar/editar o STAR gerado por item (RF08, RF09, RF12)
 export default function ReviewDocumentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [doc, setDoc] = useState<DocumentDetail | null>(null);
+  const [showAddTasks, setShowAddTasks] = useState(false);
+  const [addingTasks, setAddingTasks] = useState(false);
   const { job, trackJob } = useDocumentJob(id);
   const wasProcessingRef = useRef(false);
 
@@ -79,20 +82,14 @@ export default function ReviewDocumentPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // O progresso "ao vivo" vem do contexto global (que já está fazendo polling);
-  // recarrega o documento só quando o job sai de "processing" (pra pegar os
-  // itens/STAR recém-gerados). Antes do primeiro tick do contexto, usa o que
-  // já veio no load() inicial pra não piscar o banner.
   useEffect(() => {
     if (job?.status === 'processing') wasProcessingRef.current = true;
     else if (wasProcessingRef.current) {
       wasProcessingRef.current = false;
       load();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.status]);
 
   async function handleGenerate() {
@@ -100,9 +97,6 @@ export default function ReviewDocumentPage() {
     trackJob();
   }
 
-  // "Tentar novamente" depois de uma falha: continua de onde parou (nada do
-  // que já foi processado é perdido nem reprocessado) — diferente do botão
-  // "Regerar com IA", que força tudo de novo.
   async function handleResume() {
     const path = jobType === 'generate' ? `/documents/${id}/generate/resume` : `/documents/${id}/items/resume`;
     try {
@@ -111,6 +105,28 @@ export default function ReviewDocumentPage() {
     } catch (err) {
       const message = isAxiosError<{ message?: string }>(err) ? err.response?.data?.message : null;
       toast.error(message ?? 'Não foi possível retomar o processamento.');
+    }
+  }
+
+  async function handleAddItems(tasks: JiraTask[]) {
+    if (!id) return;
+    setAddingTasks(true);
+    try {
+      const items = tasks.map((task) => ({
+        sourceType: 'jira' as const,
+        sourceRef: task.key,
+        sourceTitle: task.summary,
+        sourceUrl: task.url,
+        jiraIssueId: task.id,
+        jiraStatus: task.status,
+        jiraStatusCategory: task.statusCategory,
+        description: task.description,
+      }));
+      await api.post(`/documents/${id}/items`, { items });
+      trackJob();
+      setShowAddTasks(false);
+    } finally {
+      setAddingTasks(false);
     }
   }
 
@@ -161,6 +177,14 @@ export default function ReviewDocumentPage() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowAddTasks((v) => !v)}
+            disabled={jobActive}
+          >
+            <ListPlus className="h-4 w-4" strokeWidth={1.75} />
+            Adicionar tarefas
+          </Button>
           <Button variant="outline" onClick={handleGenerate} disabled={jobActive || doc.items.length === 0}>
             <Sparkles className={generating ? 'star-spin h-4 w-4' : 'h-4 w-4'} strokeWidth={1.75} />
             {generating ? 'Gerando…' : hasGeneratedContent ? 'Regerar com IA' : 'Gerar com IA'}
@@ -224,6 +248,27 @@ export default function ReviewDocumentPage() {
             Tentar novamente
           </Button>
         </div>
+      )}
+
+      {showAddTasks && (
+        <section className="mt-6 rounded-xl border border-border bg-muted/30 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-sm font-semibold">Adicionar tarefas do Jira</h2>
+            <Button variant="ghost" size="icon-sm" aria-label="Fechar" onClick={() => setShowAddTasks(false)}>
+              <X className="h-4 w-4" strokeWidth={1.75} />
+            </Button>
+          </div>
+          <div className="mt-4">
+            <JiraTaskSelector
+              initialPeriodStart={doc.periodStart}
+              initialPeriodEnd={doc.periodEnd}
+              submitLabel="Adicionar tarefas selecionadas"
+              submittingLabel="Adicionando…"
+              submitting={addingTasks}
+              onSubmit={handleAddItems}
+            />
+          </div>
+        </section>
       )}
 
       {doc.executiveSummary && (
