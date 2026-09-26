@@ -16,12 +16,6 @@ export interface DashboardDocument {
   items: DashboardDocumentItem[];
 }
 
-/**
- * Porta de leitura para o dashboard: consulta direto o read model
- * (ORM) em vez de reconstruir o agregado `Document`, já que é usado
- * só para relatórios agregados (CQRS leve — escritas continuam
- * passando pelo `DocumentRepository`/agregado).
- */
 export interface DashboardQueryPort {
   findDocumentById(documentId: string): Promise<DashboardDocument | null>;
 }

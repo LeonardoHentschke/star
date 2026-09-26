@@ -1,11 +1,3 @@
-/**
- * Value Object: representa o conteúdo STAR (Situação, Tarefa, Ação, Resultado)
- * de um item do documento. É imutável — qualquer alteração cria uma nova instância.
- *
- * Regra de negócio: um StarContent só é considerado "completo" quando os
- * quatro campos estão preenchidos — isso é usado pelo domínio para decidir,
- * por exemplo, se um item entra no resumo executivo (RF12).
- */
 export class StarContent {
   private constructor(
     public readonly situation: string | null,

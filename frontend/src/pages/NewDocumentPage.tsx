@@ -44,8 +44,6 @@ interface JiraTaskFilters {
 
 const EMPTY_FILTERS: JiraTaskFilters = { statuses: [], priorities: [], issueTypes: [] };
 
-// Janela de páginas com "..." quando há muitas páginas: sempre mostra a
-// primeira, a última, a atual e as 2 vizinhas de cada lado.
 function getPageNumbers(current: number, total: number): (number | 'ellipsis')[] {
   if (total <= 1) return [1];
 
@@ -64,8 +62,6 @@ function getPageNumbers(current: number, total: number): (number | 'ellipsis')[]
   return result;
 }
 
-// Tela 3 do PRD: definir título/período e selecionar tarefas Jira — os PRs
-// vinculados a cada tarefa (app "GitHub for Jira") entram automaticamente.
 export default function NewDocumentPage() {
   const navigate = useNavigate();
   const trackJob = useTrackDocumentJob();
@@ -139,9 +135,6 @@ export default function NewDocumentPage() {
       description: task.description,
     }));
 
-    // Processa em background (busca PRs vinculadas no Jira/GitHub para cada
-    // tarefa) — a resposta volta na hora, o progresso é acompanhado na
-    // tela de revisão.
     await api.post(`/documents/${doc.id}/items`, { items });
     trackJob(doc.id);
 

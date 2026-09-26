@@ -15,7 +15,6 @@ interface DocumentSummary {
   jobStatus: 'idle' | 'processing' | 'failed';
 }
 
-// Tela 2 do PRD: lista de documentos criados (RF10)
 export default function DocumentsListPage() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);

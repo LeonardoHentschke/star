@@ -58,10 +58,6 @@ export class GithubGateway implements GithubGatewayPort {
     try {
       const { data } = await this.client.get('/search/issues', { params: { q: query, per_page: 100 } });
 
-      // A Search API não retorna additions/deletions/changed_files (só o
-      // endpoint de detalhe de uma PR específica retorna) — exigiria uma
-      // chamada extra por PR, fora de escopo aqui pois este método não é
-      // usado no fluxo de criação de item.
       return data.items.map((pr: any) => ({
         number: pr.number,
         repo: repoFullName,

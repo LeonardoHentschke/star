@@ -100,8 +100,6 @@ function formatMonth(month: string): string {
   return `${MONTHS[Number(m) - 1] ?? m}/${year.slice(2)}`;
 }
 
-// Tela de dashboard: métricas de um documento por vez, escolhido pelo usuário
-// (com opção de deixar um documento como favorito para abrir direto nele).
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<DocumentSummary[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(true);
@@ -152,11 +150,6 @@ export default function DashboardPage() {
     }
   }
 
-  // Sem `color` aqui de propósito: o nome do status é texto livre (ex: "To
-  // Do", vindo do workflow do Jira), e ChartStyle geraria uma custom property
-  // CSS inválida com esse valor como parte do nome (`--color-To Do`). A cor
-  // de cada fatia vem do `fill` no Cell abaixo; o tooltip/legenda já usa o
-  // fill como fallback quando o config não tem `color`.
   const statusChartConfig = useMemo<ChartConfig>(() => {
     const config: ChartConfig = {};
     (summary?.byStatus ?? []).forEach((entry) => {

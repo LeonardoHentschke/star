@@ -41,10 +41,6 @@ export class AddDocumentItemsUseCase {
     @Inject(JIRA_GATEWAY) private readonly jiraGateway: JiraGatewayPort,
   ) {}
 
-  // Valida e dispara o processamento em background — não espera terminar.
-  // Itens vindos de centenas de tarefas do Jira levam minutos (cada um busca
-  // as PRs vinculadas no Jira + detalhes no GitHub), então isso não pode
-  // bloquear a requisição HTTP.
   async start(documentId: string, dto: AddDocumentItemsBatchDto): Promise<void> {
     const document = await this.repo.findById(documentId);
     if (!document) throw new DocumentNotFoundError(documentId);
@@ -60,15 +56,9 @@ export class AddDocumentItemsUseCase {
     });
 
     this.process(documentId).catch(() => {
-      // process() já trata os próprios erros gravando jobStatus='failed';
-      // este catch só evita um unhandled rejection.
     });
   }
 
-  // Retoma um job que falhou no meio do caminho — continua só os itens que
-  // ainda não foram adicionados (o payload salvo em `start()` guarda a
-  // seleção original completa; o que já está em `document.items` nunca é
-  // reprocessado). Não recebe corpo: tudo que precisa já está persistido.
   async resume(documentId: string): Promise<void> {
     const document = await this.repo.findById(documentId);
     if (!document) throw new DocumentNotFoundError(documentId);
@@ -103,9 +93,6 @@ export class AddDocumentItemsUseCase {
         await this.repo.updateJobState(documentId, { jobProgressDone: done });
       }
 
-      // Mantém `jobType` (não zera): o frontend só observa a transição
-      // final via polling, e precisa saber o que terminou ("adicionar
-      // itens" vs "gerar com IA") pra montar a mensagem do toast.
       await this.repo.updateJobState(documentId, {
         jobStatus: 'idle',
         jobProgressDone: null,
@@ -113,8 +100,6 @@ export class AddDocumentItemsUseCase {
         jobPayload: null,
       });
     } catch (err) {
-      // Não mexe em jobPayload/jobProgress — é isso que permite retomar
-      // depois via resume(), continuando só os itens que faltam.
       await this.repo.updateJobState(documentId, {
         jobStatus: 'failed',
         jobError: err instanceof Error ? err.message : 'Erro desconhecido ao adicionar itens.',

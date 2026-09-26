@@ -1,4 +1,3 @@
-// GET /dashboard/summary?documentId&periodStart&periodEnd — documentId obrigatório, período opcional ("YYYY-MM-DD")
 export interface DashboardSummaryQueryDto {
   documentId: string;
   periodStart?: string;

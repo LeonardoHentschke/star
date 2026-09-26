@@ -11,10 +11,6 @@ import ReviewDocumentPage from './pages/ReviewDocumentPage';
 import FinalDocumentPage from './pages/FinalDocumentPage';
 import DashboardPage from './pages/DashboardPage';
 
-// Estrutura de rotas alinhada às 5 telas do PRD (seção 11):
-// 1. Conexões  2. Lista de Documentos  3. Novo Documento
-// 4. Revisão do Documento  5. Documento Final
-
 type Theme = 'light' | 'dark';
 
 function getInitialTheme(): Theme {

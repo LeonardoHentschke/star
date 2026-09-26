@@ -33,7 +33,6 @@ interface DocumentDetail {
   items: DocumentItem[];
 }
 
-// Tela 5 do PRD: visualização consolidada + export PDF (RF11)
 export default function FinalDocumentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

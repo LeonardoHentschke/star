@@ -10,11 +10,6 @@ import { SourceReference } from '../../domain/value-objects/source-reference.vo'
 import { DocumentOrmEntity } from './document.orm-entity';
 import { DocumentItemOrmEntity } from './document-item.orm-entity';
 
-/**
- * Adaptador de persistência: implementa a porta `DocumentRepository`
- * (definida no domínio) usando TypeORM/MariaDB. É a única classe do
- * sistema que sabe converter entre entidades de domínio e modelos ORM.
- */
 @Injectable()
 export class TypeOrmDocumentRepository implements DocumentRepository {
   constructor(
@@ -49,9 +44,6 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
   }
 
   async updateJobState(id: string, state: DocumentJobStateUpdate): Promise<boolean> {
-    // `jobPayload` (coluna json) não bate exatamente com o tipo que o TypeORM
-    // infere pra QueryDeepPartialEntity — cast pragmático, sem perda real de
-    // segurança de tipos (o shape de `state` já é validado por DocumentJobStateUpdate).
     const result = await this.ormRepo.update({ id }, state as Parameters<typeof this.ormRepo.update>[1]);
     return (result.affected ?? 0) > 0;
   }

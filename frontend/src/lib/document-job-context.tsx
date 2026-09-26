@@ -33,9 +33,6 @@ interface DocumentJobContextValue {
 
 const DocumentJobContext = createContext<DocumentJobContextValue | null>(null);
 
-// Acompanha jobs em background (adicionar itens / gerar com IA) em um único
-// polling global — assim o toast de "pronto"/"falhou" aparece mesmo que o
-// usuário tenha navegado para outra tela enquanto o job rodava.
 export function DocumentJobProvider({ children }: { children: ReactNode }) {
   const [trackedIds, setTrackedIds] = useState<string[]>([]);
   const [jobs, setJobs] = useState<Record<string, DocumentJobState>>({});
@@ -75,8 +72,6 @@ export function DocumentJobProvider({ children }: { children: ReactNode }) {
   return <DocumentJobContext.Provider value={{ jobs, trackJob }}>{children}</DocumentJobContext.Provider>;
 }
 
-// Para telas que só precisam disparar o acompanhamento de um documento (ex:
-// logo após criar/disparar um job), sem observar o progresso inline.
 export function useTrackDocumentJob() {
   const ctx = useContext(DocumentJobContext);
   if (!ctx) throw new Error('useTrackDocumentJob precisa estar dentro de <DocumentJobProvider>');

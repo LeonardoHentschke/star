@@ -56,21 +56,18 @@ export class DocumentsController {
     private readonly setFavoriteDocument: SetFavoriteDocumentUseCase,
   ) {}
 
-  // RF10
   @Post()
   async create(@Body(new ZodValidationPipe(CreateDocumentSchema)) dto: CreateDocumentDto) {
     const document = await this.createDocument.execute(dto);
     return DocumentPresenter.toSummary(document);
   }
 
-  // RF10
   @Get()
   async findAll() {
     const documents = await this.listDocuments.execute();
     return documents.map(DocumentPresenter.toSummary);
   }
 
-  // RF10
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const document = await this.getDocument.execute(id);
@@ -86,8 +83,6 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
-  // Marcar/desmarcar como favorito (usado pela tela de Dashboard para abrir
-  // sempre no mesmo documento).
   @Patch(':id/favorite')
   async setFavorite(
     @Param('id') id: string,
@@ -97,15 +92,12 @@ export class DocumentsController {
     return DocumentPresenter.toSummary(document);
   }
 
-  // RF10
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.deleteDocument.execute(id);
     return { deleted: true };
   }
 
-  // RF06/RF07 — selecionar itens de Jira/GitHub para o documento. Processa em
-  // background (pode levar minutos com muitos itens) — responde na hora.
   @Post(':id/items')
   @HttpCode(202)
   async addItems(
@@ -116,8 +108,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // Retoma um job de adicionar itens que falhou — continua de onde parou,
-  // sem precisar reenviar a seleção original.
   @Post(':id/items/resume')
   @HttpCode(202)
   async resumeAddItems(@Param('id') id: string) {
@@ -125,9 +115,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // Reordenação manual dos itens (usuário não concorda com a ordem sugerida pela
-  // IA, ou escreveu o documento manualmente). Precisa vir antes de
-  // ':id/items/:itemId' para não ser capturada pela rota dinâmica.
   @Patch(':id/items/reorder')
   async reorderItems(
     @Param('id') id: string,
@@ -137,7 +124,6 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
-  // RF09 — editar texto STAR de um item
   @Patch(':id/items/:itemId')
   async updateItem(
     @Param('id') id: string,
@@ -148,8 +134,6 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
-  // RF08 + RF12 — gerar textos STAR e resumo executivo via IA. Processa em
-  // background (uma chamada de IA por item) — responde na hora.
   @Post(':id/generate')
   @HttpCode(202)
   async generate(
@@ -160,8 +144,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // Retoma um job de geração via IA que falhou — continua só os itens ainda
-  // incompletos, sem reprocessar (e re-cobrar) os que já foram gerados.
   @Post(':id/generate/resume')
   @HttpCode(202)
   async resumeGenerate(@Param('id') id: string) {
@@ -169,7 +151,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // RF11 — exportar PDF
   @Get(':id/export/pdf')
   async exportPdf(@Param('id') id: string, @Res() res: Response) {
     const buffer = await this.exportDocumentPdf.execute(id);

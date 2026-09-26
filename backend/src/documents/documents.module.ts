@@ -33,11 +33,9 @@ import { SetFavoriteDocumentUseCase } from './application/use-cases/set-favorite
   ],
   controllers: [DocumentsController],
   providers: [
-    // Wiring das portas do domínio/aplicação para suas implementações concretas
     { provide: DOCUMENT_REPOSITORY, useClass: TypeOrmDocumentRepository },
     { provide: PDF_EXPORTER, useClass: PdfKitDocumentExporter },
 
-    // Casos de uso
     CreateDocumentUseCase,
     ListDocumentsUseCase,
     GetDocumentUseCase,

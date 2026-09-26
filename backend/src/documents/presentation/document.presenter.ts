@@ -1,10 +1,5 @@
 import { Document } from '../domain/document.entity';
 
-/**
- * A camada de apresentação nunca serializa a entidade de domínio
- * diretamente (ela tem métodos e invariantes que não fazem sentido
- * expor). O Presenter converte para um shape simples de JSON.
- */
 export class DocumentPresenter {
   static toSummary(document: Document) {
     return {

@@ -10,7 +10,6 @@ interface ConnectionStatus {
   message: string;
 }
 
-// Tela 1 do PRD: status de conexão com Jira e GitHub (RF02)
 export default function ConnectionsPage() {
   const [jira, setJira] = useState<ConnectionStatus | null>(null);
   const [github, setGithub] = useState<ConnectionStatus | null>(null);

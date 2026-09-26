@@ -75,9 +75,6 @@ export class GetDashboardSummaryUseCase {
     };
   }
 
-  // Agrupa por status real do item: texto do status do Jira (workflow-specific,
-  // ex: "To Do"/"In Progress"/"In Review"/"Done") ou, para PRs sem Jira vinculado,
-  // "Aberta"/"Mesclada" a partir de `merged`.
   private byStatus(items: DashboardDocumentItem[]): { status: string; itemsCount: number }[] {
     const counts = new Map<string, number>();
     for (const item of items) {
@@ -92,11 +89,6 @@ export class GetDashboardSummaryUseCase {
     return [...counts.entries()].map(([status, itemsCount]) => ({ status, itemsCount }));
   }
 
-  // Agrupa por mês do `mergedAt` da PR mergeada de cada item concluído (mesma
-  // fonte de dado que `prCycleTime` já usa). Com um único documento, agrupar
-  // por período do documento (como antes) sempre daria um ponto só — isso
-  // mostra a evolução real dentro do próprio documento quando ele cobre mais
-  // de um mês. Itens concluídos sem PR mergeada com data não entram aqui.
   private completedOverTime(items: DashboardDocumentItem[]): { month: string; doneCount: number }[] {
     const counts = new Map<string, number>();
     for (const item of items) {
@@ -107,7 +99,7 @@ export class GetDashboardSummaryUseCase {
         .map((pr) => pr.mergedAt as string);
       if (mergedDates.length === 0) continue;
 
-      const month = [...mergedDates].sort().at(-1)!.slice(0, 7); // "YYYY-MM"
+      const month = [...mergedDates].sort().at(-1)!.slice(0, 7);
       counts.set(month, (counts.get(month) ?? 0) + 1);
     }
     return [...counts.entries()]

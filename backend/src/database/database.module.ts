@@ -17,8 +17,6 @@ import { DocumentItemOrmEntity } from '../documents/infrastructure/persistence/d
         password: config.get<string>('DB_PASSWORD', 'starpassword'),
         database: config.get<string>('DB_NAME', 'star'),
         entities: [DocumentOrmEntity, DocumentItemOrmEntity],
-        // Em ambiente local, apenas você usa a aplicação — synchronize
-        // simplifica não precisar de migrations manuais no MVP.
         synchronize: true,
         logging: false,
       }),

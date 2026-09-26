@@ -8,11 +8,6 @@ import {
 } from 'typeorm';
 import { DocumentItemOrmEntity } from './document-item.orm-entity';
 
-/**
- * Modelo de persistência (TypeORM) — não é o mesmo objeto que a entidade
- * de domínio `Document`. O `TypeOrmDocumentRepository` é responsável por
- * converter entre os dois (ver `toDomain` / `fromDomain`).
- */
 @Entity('documents')
 export class DocumentOrmEntity {
   @PrimaryColumn('uuid')
@@ -45,8 +40,6 @@ export class DocumentOrmEntity {
   @Column({ type: 'boolean', default: false })
   favorite: boolean;
 
-  // Estado do processamento em background (adicionar itens / gerar com IA) —
-  // ver `DocumentRepository.updateJobState`/`failAllProcessingJobs`.
   @Column({ type: 'enum', enum: ['idle', 'processing', 'failed'], default: 'idle' })
   jobStatus: 'idle' | 'processing' | 'failed';
 
@@ -62,9 +55,6 @@ export class DocumentOrmEntity {
   @Column({ type: 'int', nullable: true })
   jobProgressTotal: number | null;
 
-  // Guarda o suficiente do pedido original do job (itens a adicionar / flag
-  // de regenerar resumo) pra permitir retomar depois de uma falha sem o
-  // cliente reenviar nada — ver DocumentRepository.saveItem/updateJobState.
   @Column({ type: 'json', nullable: true })
   jobPayload: Record<string, unknown> | null;
 }

@@ -1,15 +1,9 @@
 export type SourceType = 'jira' | 'github_pr';
 
-/**
- * Value Object: identifica a origem externa de um DocumentItem
- * (uma tarefa do Jira ou um Pull Request do GitHub), preservando
- * um snapshot dos dados brutos para permitir reprocessamento futuro
- * sem precisar buscar de novo na API externa.
- */
 export class SourceReference {
   private constructor(
     public readonly sourceType: SourceType,
-    public readonly sourceRef: string, // ex: "PROJ-123" ou "42"
+    public readonly sourceRef: string,
     public readonly title: string,
     public readonly url: string | null,
     public readonly rawSnapshot: Record<string, unknown> | null,

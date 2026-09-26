@@ -41,10 +41,6 @@ export class JiraGateway implements JiraGatewayPort {
   }
 
   async findMyTasks(query: JiraTaskQueryDto): Promise<JiraTaskDto[]> {
-    // Inclui "assignee was" para não perder tarefas que o usuário trabalhou
-    // mas que foram reatribuídas depois; e usa hora explícita no fim do
-    // período porque o Jira trata data sem hora como "00:00", o que corta
-    // fora quase o dia inteiro de periodEnd.
     let jql = `(assignee = currentUser() OR assignee was currentUser()) AND updated >= "${query.periodStart} 00:00" AND updated <= "${query.periodEnd} 23:59"`;
     const statusIds = this.jqlIdList(query.status);
     const priorityIds = this.jqlIdList(query.priority);
@@ -90,15 +86,6 @@ export class JiraGateway implements JiraGatewayPort {
     }
   }
 
-  // Consulta os catálogos globais do Jira para popular os filtros
-  // opcionais da busca de tarefas (status/prioridade/tipo). O filtro em si
-  // usa o id (não o nome) porque issue.fields.status.name vem traduzido
-  // conforme o idioma da conta, e o JQL "status = <nome>" só casa com o
-  // nome original do workflow. Como o mesmo nome de status pode ter ids
-  // diferentes em workflows diferentes, agrupamos por nome e juntamos os
-  // ids com vírgula — o parser de query do controller já espera esse
-  // formato para múltiplos valores, então um único item selecionado no
-  // dropdown pode expandir para "in (id1, id2)" no JQL.
   async listTaskFilters(): Promise<JiraTaskFiltersDto> {
     try {
       const statusesRes = await this.withDnsRetry(() => this.client.get('/status'));
@@ -125,16 +112,6 @@ export class JiraGateway implements JiraGatewayPort {
     }
   }
 
-  // Usa a API dev-status (a mesma que alimenta o painel "Development" da
-  // issue no Jira) para achar os PRs do GitHub já linkados pelo app
-  // "GitHub for Jira" — não depende de heurística de texto.
-  //
-  // O valor de applicationType documentado publicamente ("GitHub") é da
-  // integração DVCS antiga; o app atual "GitHub for Jira" (instalado via
-  // OAuth/GitHub App) usa o identificador de instância
-  // "oAuth-com.github.integration.production" — confirmado testando
-  // contra /rest/dev-status/1.0/issue/summary, cujo byInstanceType
-  // revela esse identificador.
   async findLinkedPullRequestUrls(issueId: string): Promise<JiraLinkedPullRequestDto[]> {
     try {
       const { data } = await this.withDnsRetry(() =>
@@ -168,18 +145,11 @@ export class JiraGateway implements JiraGatewayPort {
     return parts.join(' ').trim() || null;
   }
 
-  // Filtra por ID, não por nome: o nome do status vem traduzido conforme o
-  // idioma da conta (issue.fields.status.name), mas o JQL "status = <nome>"
-  // só casa com o nome original do workflow — só o ID é estável para JQL.
   private jqlIdList(ids?: string[]): string | null {
     const numericIds = (ids ?? []).filter((id) => /^\d+$/.test(id));
     return numericIds.length ? `(${numericIds.join(', ')})` : null;
   }
 
-  // O DNS embutido do Docker às vezes falha de forma intermitente logo após
-  // o processo subir (getaddrinfo EAI_AGAIN), mesmo em chamadas sequenciais
-  // — observado repetidamente contra o domínio real do Jira neste ambiente.
-  // Retenta algumas vezes com um pequeno backoff antes de desistir.
   private async withDnsRetry<T>(fn: () => Promise<T>): Promise<T> {
     const maxAttempts = 4;
     const transientCodes = new Set(['EAI_AGAIN', 'ENOTFOUND', 'ECONNRESET', 'ETIMEDOUT']);

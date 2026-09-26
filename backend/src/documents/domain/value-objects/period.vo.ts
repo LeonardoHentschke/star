@@ -1,12 +1,8 @@
 import { InvalidPeriodError } from '../errors/document-domain.errors';
 
-/**
- * Value Object: período (início/fim) coberto por um documento.
- * Garante a invariante de que o fim não pode ser anterior ao início.
- */
 export class Period {
   private constructor(
-    public readonly start: string, // "YYYY-MM-DD"
+    public readonly start: string,
     public readonly end: string,
   ) {}
 

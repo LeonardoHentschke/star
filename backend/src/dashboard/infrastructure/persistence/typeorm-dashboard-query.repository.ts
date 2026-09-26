@@ -12,7 +12,6 @@ export class TypeOrmDashboardQueryRepository implements DashboardQueryPort {
   ) {}
 
   async findDocumentById(documentId: string): Promise<DashboardDocument | null> {
-    // `items` é eager em DocumentOrmEntity, então já vem carregado.
     const doc = await this.ormRepo.findOne({ where: { id: documentId } });
     if (!doc) return null;
 

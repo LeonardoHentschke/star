@@ -4,12 +4,6 @@ import { DOCUMENT_REPOSITORY, DocumentRepository } from '../../domain/document.r
 import { DocumentNotFoundError } from '../../domain/errors/document-domain.errors';
 import { UpdateDocumentItemDto } from '../dto/document.dto';
 
-/**
- * Carrega o agregado Document inteiro para editar um item — mantém a
- * consistência do agregado (não se edita um DocumentItem isoladamente
- * fora do ciclo de vida do Document, é assim que o TypeORM vai persistir
- * a mudança também).
- */
 @Injectable()
 export class UpdateDocumentItemUseCase {
   constructor(

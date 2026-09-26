@@ -24,10 +24,6 @@ export interface ConnectionStatus {
   message: string;
 }
 
-/**
- * Porta (interface): acesso ao GitHub. Implementada em
- * infrastructure/github.gateway.ts usando a REST API do GitHub.
- */
 export interface GithubGatewayPort {
   testConnection(): Promise<ConnectionStatus>;
   listRepos(): Promise<GithubRepoDto[]>;

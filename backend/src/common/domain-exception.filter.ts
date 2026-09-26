@@ -9,11 +9,6 @@ import {
   InvalidPeriodError,
 } from '../documents/domain/errors/document-domain.errors';
 
-/**
- * Os use cases e o domínio lançam erros próprios (ex: DocumentNotFoundError),
- * sem depender do NestJS. Este filtro, registrado globalmente, faz a
- * tradução para o status HTTP correto na borda da aplicação.
- */
 @Catch(DocumentDomainError)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: DocumentDomainError, host: ArgumentsHost) {

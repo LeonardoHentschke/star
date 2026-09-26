@@ -21,10 +21,6 @@ function useChart() {
   return context;
 }
 
-// Resolve a config de um item do payload do Recharts. Quando `key` (ex:
-// nameKey="sourceType") é o nome de um campo do dado bruto, usa o *valor*
-// desse campo (ex: "jira") como chave de busca em `config` — em vez do
-// nome do campo em si — para funcionar com Pie/legend dinâmicos.
 function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key: string) {
   if (typeof payload !== 'object' || payload === null) return undefined;
 
