@@ -2,7 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DocumentNotFoundError } from '../../../documents/domain/errors/document-domain.errors';
 import {
   isItemDone,
+  itemMatchesAttributeFilter,
   itemMatchesDateFilter,
+  itemStatusLabel,
   linesChanged,
   linkedPullRequests,
 } from '../../domain/dashboard-item-status';
@@ -25,8 +27,10 @@ export class GetDashboardSummaryUseCase {
     const document = await this.dashboardQuery.findDocumentById(query.documentId);
     if (!document) throw new DocumentNotFoundError(query.documentId);
 
-    const items = document.items.filter((item) =>
-      itemMatchesDateFilter(item, query.periodStart, query.periodEnd),
+    const items = document.items.filter(
+      (item) =>
+        itemMatchesDateFilter(item, query.periodStart, query.periodEnd) &&
+        itemMatchesAttributeFilter(item, query.status, query.issueType),
     );
 
     const doneItems = items.filter(isItemDone);
@@ -43,7 +47,12 @@ export class GetDashboardSummaryUseCase {
         periodStart: document.periodStart,
         periodEnd: document.periodEnd,
       },
-      filter: { periodStart: query.periodStart ?? null, periodEnd: query.periodEnd ?? null },
+      filter: {
+        periodStart: query.periodStart ?? null,
+        periodEnd: query.periodEnd ?? null,
+        status: query.status ?? null,
+        issueType: query.issueType ?? null,
+      },
       totals: {
         itemsCount: items.length,
         doneItemsCount: doneItems.length,
@@ -54,6 +63,7 @@ export class GetDashboardSummaryUseCase {
       },
       topItemByLinesChanged: top && linesChanged(top) > 0 ? this.toTopItemDto(top) : null,
       byStatus: this.byStatus(items),
+      byIssueType: this.byIssueType(items),
       topItemsByLinesChanged: ranked
         .filter((item) => linesChanged(item) > 0)
         .slice(0, TOP_ITEMS_LIMIT)
@@ -78,15 +88,19 @@ export class GetDashboardSummaryUseCase {
   private byStatus(items: DashboardDocumentItem[]): { status: string; itemsCount: number }[] {
     const counts = new Map<string, number>();
     for (const item of items) {
-      const status =
-        item.sourceType === 'jira'
-          ? (item.jiraStatus ?? 'Sem status')
-          : item.merged
-            ? 'Mesclada'
-            : 'Aberta';
+      const status = itemStatusLabel(item);
       counts.set(status, (counts.get(status) ?? 0) + 1);
     }
     return [...counts.entries()].map(([status, itemsCount]) => ({ status, itemsCount }));
+  }
+
+  private byIssueType(items: DashboardDocumentItem[]): { issueType: string; itemsCount: number }[] {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      if (item.sourceType !== 'jira' || !item.jiraIssueType) continue;
+      counts.set(item.jiraIssueType, (counts.get(item.jiraIssueType) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([issueType, itemsCount]) => ({ issueType, itemsCount }));
   }
 
   private completedOverTime(items: DashboardDocumentItem[]): { month: string; doneCount: number }[] {

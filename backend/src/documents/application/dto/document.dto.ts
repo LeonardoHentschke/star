@@ -15,6 +15,7 @@ export const AddDocumentItemSchema = z.object({
   jiraIssueId: z.string().optional(),
   jiraStatus: z.string().nullable().optional(),
   jiraStatusCategory: z.enum(['new', 'indeterminate', 'done']).nullable().optional(),
+  jiraIssueType: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
 });
 export type AddDocumentItemDto = z.infer<typeof AddDocumentItemSchema>;
@@ -49,6 +50,17 @@ export const SetFavoriteDocumentSchema = z.object({
   favorite: z.boolean(),
 });
 export type SetFavoriteDocumentDto = z.infer<typeof SetFavoriteDocumentSchema>;
+
+export const DocumentItemsPageQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
+export type DocumentItemsPageQueryDto = z.infer<typeof DocumentItemsPageQuerySchema>;
+
+export const MoveDocumentItemSchema = z.object({
+  direction: z.enum(['up', 'down']),
+});
+export type MoveDocumentItemDto = z.infer<typeof MoveDocumentItemSchema>;
 
 export const ReorderDocumentItemsSchema = z.object({
   itemIds: z.array(z.string().min(1)).min(1),

@@ -27,7 +27,6 @@ export class DocumentOrmEntity {
 
   @OneToMany(() => DocumentItemOrmEntity, (item) => item.document, {
     cascade: true,
-    eager: true,
   })
   items: DocumentItemOrmEntity[];
 

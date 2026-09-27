@@ -139,12 +139,27 @@ export class Document {
   editItemStar(
     itemId: string,
     fields: Partial<{ situation: string | null; task: string | null; action: string | null; result: string | null }>,
-  ): void {
-    this.findItemOrThrow(itemId).editStar(fields);
+  ): DocumentItem {
+    const item = this.findItemOrThrow(itemId);
+    item.editStar(fields);
+    return item;
   }
 
   setExecutiveSummary(summary: string | null): void {
     this._executiveSummary = summary;
+  }
+
+  moveItem(itemId: string, direction: 'up' | 'down'): DocumentItem[] {
+    const index = this._items.findIndex((item) => item.id === itemId);
+    if (index < 0) throw new DocumentItemNotFoundError(itemId);
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= this._items.length) return [];
+
+    [this._items[index], this._items[targetIndex]] = [this._items[targetIndex], this._items[index]];
+    this._items[index].reorder(index);
+    this._items[targetIndex].reorder(targetIndex);
+    return [this._items[index], this._items[targetIndex]];
   }
 
   reorderItems(orderedIds: string[]): void {

@@ -9,6 +9,7 @@ export class SourceReference {
     public readonly rawSnapshot: Record<string, unknown> | null,
     public readonly jiraStatus: string | null,
     public readonly jiraDone: boolean | null,
+    public readonly jiraIssueType: string | null,
     public readonly merged: boolean | null,
     public readonly additions: number,
     public readonly deletions: number,
@@ -23,6 +24,7 @@ export class SourceReference {
     rawSnapshot?: Record<string, unknown> | null;
     jiraStatus?: string | null;
     jiraDone?: boolean | null;
+    jiraIssueType?: string | null;
     merged?: boolean | null;
     additions?: number;
     deletions?: number;
@@ -36,6 +38,7 @@ export class SourceReference {
       fields.rawSnapshot ?? null,
       fields.jiraStatus ?? null,
       fields.jiraDone ?? null,
+      fields.jiraIssueType ?? null,
       fields.merged ?? null,
       fields.additions ?? 0,
       fields.deletions ?? 0,

@@ -1,4 +1,5 @@
 import { Document } from '../domain/document.entity';
+import { DocumentItem } from '../domain/document-item.entity';
 
 export class DocumentPresenter {
   static toSummary(document: Document) {
@@ -20,18 +21,22 @@ export class DocumentPresenter {
     return {
       ...this.toSummary(document),
       executiveSummary: document.executiveSummary,
-      items: document.items.map((item) => ({
-        id: item.id,
-        sourceType: item.source.sourceType,
-        sourceRef: item.source.sourceRef,
-        sourceTitle: item.source.title,
-        sourceUrl: item.source.url,
-        pullRequests: (item.source.rawSnapshot?.pullRequests as unknown[] | undefined) ?? [],
-        situation: item.star.situation,
-        task: item.star.task,
-        action: item.star.action,
-        result: item.star.result,
-      })),
+      items: document.items.map((item) => this.toItem(item)),
+    };
+  }
+
+  static toItem(item: DocumentItem) {
+    return {
+      id: item.id,
+      sourceType: item.source.sourceType,
+      sourceRef: item.source.sourceRef,
+      sourceTitle: item.source.title,
+      sourceUrl: item.source.url,
+      pullRequests: (item.source.rawSnapshot?.pullRequests as unknown[] | undefined) ?? [],
+      situation: item.star.situation,
+      task: item.star.task,
+      action: item.star.action,
+      result: item.star.result,
     };
   }
 }

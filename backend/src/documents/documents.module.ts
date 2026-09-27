@@ -20,7 +20,9 @@ import { DeleteDocumentUseCase } from './application/use-cases/delete-document.u
 import { AddDocumentItemsUseCase } from './application/use-cases/add-document-items.use-case';
 import { UpdateDocumentItemUseCase } from './application/use-cases/update-document-item.use-case';
 import { ReorderDocumentItemsUseCase } from './application/use-cases/reorder-document-items.use-case';
+import { MoveDocumentItemUseCase } from './application/use-cases/move-document-item.use-case';
 import { GenerateDocumentUseCase } from './application/use-cases/generate-document.use-case';
+import { GenerateDocumentItemUseCase } from './application/use-cases/generate-document-item.use-case';
 import { ExportDocumentPdfUseCase } from './application/use-cases/export-document-pdf.use-case';
 import { SetFavoriteDocumentUseCase } from './application/use-cases/set-favorite-document.use-case';
 
@@ -44,7 +46,9 @@ import { SetFavoriteDocumentUseCase } from './application/use-cases/set-favorite
     AddDocumentItemsUseCase,
     UpdateDocumentItemUseCase,
     ReorderDocumentItemsUseCase,
+    MoveDocumentItemUseCase,
     GenerateDocumentUseCase,
+    GenerateDocumentItemUseCase,
     ExportDocumentPdfUseCase,
     SetFavoriteDocumentUseCase,
     ResetStuckJobsProvider,

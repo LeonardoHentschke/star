@@ -8,6 +8,7 @@ export interface DashboardItem {
   sourceType: 'jira' | 'github_pr';
   jiraStatus: string | null;
   jiraDone: boolean | null;
+  jiraIssueType: string | null;
   merged: boolean | null;
   additions: number;
   deletions: number;
@@ -25,6 +26,21 @@ export function isItemDone(item: DashboardItem): boolean {
   const prs = linkedPullRequests(item);
   if (prs.length === 0) return true;
   return prs.every((pr) => pr.merged === true);
+}
+
+export function itemStatusLabel(item: DashboardItem): string {
+  if (item.sourceType === 'jira') return item.jiraStatus ?? 'Sem status';
+  return item.merged ? 'Mesclada' : 'Aberta';
+}
+
+export function itemMatchesAttributeFilter(
+  item: DashboardItem,
+  status?: string,
+  issueType?: string,
+): boolean {
+  if (status && itemStatusLabel(item) !== status) return false;
+  if (issueType && item.jiraIssueType !== issueType) return false;
+  return true;
 }
 
 export function linesChanged(item: DashboardItem): number {

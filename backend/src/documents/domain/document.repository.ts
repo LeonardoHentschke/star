@@ -10,10 +10,23 @@ export interface DocumentJobStateUpdate {
   jobPayload?: Record<string, unknown> | null;
 }
 
+export interface DocumentItemsPage {
+  document: Document;
+  totalItems: number;
+}
+
+export interface DocumentStats {
+  itemCount: number;
+  generatedCount: number;
+  pullRequestCount: number;
+}
+
 export interface DocumentRepository {
   save(document: Document): Promise<void>;
   findById(id: string): Promise<Document | null>;
+  findByIdWithItemsPage(id: string, offset: number, limit: number): Promise<DocumentItemsPage | null>;
   findAll(): Promise<Document[]>;
+  findAllStats(): Promise<Map<string, DocumentStats>>;
   delete(id: string): Promise<void>;
   clearFavorite(): Promise<void>;
   updateJobState(id: string, state: DocumentJobStateUpdate): Promise<boolean>;

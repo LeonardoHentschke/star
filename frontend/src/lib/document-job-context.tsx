@@ -48,7 +48,9 @@ export function DocumentJobProvider({ children }: { children: ReactNode }) {
 
     const interval = setInterval(async () => {
       for (const documentId of trackedIdsRef.current) {
-        const { data } = await api.get<DocumentJobResponse>(`/documents/${documentId}`);
+        const { data } = await api.get<DocumentJobResponse>(`/documents/${documentId}`, {
+          params: { page: 1, pageSize: 1 },
+        });
         const state: DocumentJobState = {
           status: data.jobStatus,
           type: data.jobType,
@@ -78,14 +80,21 @@ export function useTrackDocumentJob() {
   return ctx.trackJob;
 }
 
+export function useDocumentJobs() {
+  const ctx = useContext(DocumentJobContext);
+  if (!ctx) throw new Error('useDocumentJobs precisa estar dentro de <DocumentJobProvider>');
+  return ctx;
+}
+
 export function useDocumentJob(documentId: string | undefined) {
   const ctx = useContext(DocumentJobContext);
   if (!ctx) throw new Error('useDocumentJob precisa estar dentro de <DocumentJobProvider>');
 
   const job = documentId ? (ctx.jobs[documentId] ?? null) : null;
+  const trackDocumentJob = ctx.trackJob;
   const trackJob = useCallback(() => {
-    if (documentId) ctx.trackJob(documentId);
-  }, [ctx, documentId]);
+    if (documentId) trackDocumentJob(documentId);
+  }, [trackDocumentJob, documentId]);
 
   return { job, trackJob };
 }

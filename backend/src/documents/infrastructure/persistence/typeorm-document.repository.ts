@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Document } from '../../domain/document.entity';
 import { DocumentItem } from '../../domain/document-item.entity';
-import { DocumentJobStateUpdate, DocumentRepository } from '../../domain/document.repository';
+import { DocumentItemsPage, DocumentJobStateUpdate, DocumentRepository, DocumentStats } from '../../domain/document.repository';
 import { Period } from '../../domain/value-objects/period.vo';
 import { StarContent } from '../../domain/value-objects/star-content.vo';
 import { SourceReference } from '../../domain/value-objects/source-reference.vo';
@@ -25,14 +25,57 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
     const row = await this.ormRepo.findOne({
       where: { id },
       relations: { items: true },
-      order: { items: { order: 'ASC' } },
+      relationLoadStrategy: 'query',
     });
     return row ? this.toDomain(row) : null;
+  }
+
+  async findByIdWithItemsPage(id: string, offset: number, limit: number): Promise<DocumentItemsPage | null> {
+    const row = await this.ormRepo.findOne({ where: { id } });
+    if (!row) return null;
+
+    const [itemRows, totalItems] = await this.ormRepo.manager.getRepository(DocumentItemOrmEntity).findAndCount({
+      where: { documentId: id },
+      order: { order: 'ASC' },
+      skip: offset,
+      take: limit,
+    });
+    row.items = itemRows;
+    return { document: this.toDomain(row), totalItems };
   }
 
   async findAll(): Promise<Document[]> {
     const rows = await this.ormRepo.find({ order: { createdAt: 'DESC' } });
     return rows.map((row) => this.toDomain(row));
+  }
+
+  async findAllStats(): Promise<Map<string, DocumentStats>> {
+    const rows = await this.ormRepo.manager
+      .getRepository(DocumentItemOrmEntity)
+      .createQueryBuilder('item')
+      .select('item.documentId', 'documentId')
+      .addSelect('COUNT(*)', 'itemCount')
+      .addSelect(
+        `SUM(CASE WHEN COALESCE(item.situation, '') <> '' AND COALESCE(item.task, '') <> '' AND COALESCE(item.action, '') <> '' AND COALESCE(item.result, '') <> '' THEN 1 ELSE 0 END)`,
+        'generatedCount',
+      )
+      .addSelect(
+        `SUM(CASE WHEN item.sourceType = 'github_pr' THEN 1 ELSE COALESCE(JSON_LENGTH(item.rawSnapshot, '$.pullRequests'), 0) END)`,
+        'pullRequestCount',
+      )
+      .groupBy('item.documentId')
+      .getRawMany<{ documentId: string; itemCount: string; generatedCount: string; pullRequestCount: string }>();
+
+    return new Map(
+      rows.map((row) => [
+        row.documentId,
+        {
+          itemCount: Number(row.itemCount),
+          generatedCount: Number(row.generatedCount),
+          pullRequestCount: Number(row.pullRequestCount),
+        },
+      ]),
+    );
   }
 
   async delete(id: string): Promise<void> {
@@ -89,6 +132,7 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
     itemOrm.rawSnapshot = item.source.rawSnapshot;
     itemOrm.jiraStatus = item.source.jiraStatus;
     itemOrm.jiraDone = item.source.jiraDone;
+    itemOrm.jiraIssueType = item.source.jiraIssueType;
     itemOrm.merged = item.source.merged;
     itemOrm.additions = item.source.additions;
     itemOrm.deletions = item.source.deletions;
@@ -115,6 +159,7 @@ export class TypeOrmDocumentRepository implements DocumentRepository {
             rawSnapshot: itemRow.rawSnapshot,
             jiraStatus: itemRow.jiraStatus,
             jiraDone: itemRow.jiraDone,
+            jiraIssueType: itemRow.jiraIssueType,
             merged: itemRow.merged,
             additions: itemRow.additions,
             deletions: itemRow.deletions,

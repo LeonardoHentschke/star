@@ -148,6 +148,7 @@ export class AddDocumentItemsUseCase {
       rawSnapshot: { description, pullRequests },
       jiraStatus: item.jiraStatus ?? null,
       jiraDone: item.jiraStatusCategory === 'done',
+      jiraIssueType: item.jiraIssueType ?? null,
       additions: pullRequests.reduce((sum, pr) => sum + pr.additions, 0),
       deletions: pullRequests.reduce((sum, pr) => sum + pr.deletions, 0),
       changedFiles: pullRequests.reduce((sum, pr) => sum + pr.changedFiles, 0),

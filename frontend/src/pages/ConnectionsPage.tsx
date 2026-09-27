@@ -44,7 +44,7 @@ export default function ConnectionsPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-2xl px-8 py-10">
+    <div className="mx-auto max-w-6xl px-8 py-10">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Conexões</h1>
         <p className="text-sm text-muted-foreground">

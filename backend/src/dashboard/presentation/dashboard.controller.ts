@@ -10,8 +10,10 @@ export class DashboardController {
     @Query('documentId') documentId?: string,
     @Query('periodStart') periodStart?: string,
     @Query('periodEnd') periodEnd?: string,
+    @Query('status') status?: string,
+    @Query('issueType') issueType?: string,
   ) {
     if (!documentId) throw new BadRequestException('documentId é obrigatório');
-    return this.getDashboardSummary.execute({ documentId, periodStart, periodEnd });
+    return this.getDashboardSummary.execute({ documentId, periodStart, periodEnd, status, issueType });
   }
 }

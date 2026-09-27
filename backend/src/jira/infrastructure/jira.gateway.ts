@@ -59,7 +59,7 @@ export class JiraGateway implements JiraGatewayPort {
           this.client.post('/search/jql', {
             jql,
             maxResults: 100,
-            fields: ['summary', 'description', 'status', 'updated'],
+            fields: ['summary', 'description', 'status', 'issuetype', 'updated'],
             ...(nextPageToken ? { nextPageToken } : {}),
           }),
         );
@@ -77,6 +77,7 @@ export class JiraGateway implements JiraGatewayPort {
           description: this.extractPlainText(issue.fields.description),
           status: issue.fields.status?.name ?? '',
           statusCategory: VALID_STATUS_CATEGORIES.includes(categoryKey) ? categoryKey : 'new',
+          issueType: issue.fields.issuetype?.name ?? null,
           updated: issue.fields.updated,
           url: `https://${this.domain}/browse/${issue.key}`,
         };

@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -16,8 +17,12 @@ import {
   AddDocumentItemsBatchSchema,
   CreateDocumentDto,
   CreateDocumentSchema,
+  DocumentItemsPageQueryDto,
+  DocumentItemsPageQuerySchema,
   GenerateDocumentDto,
   GenerateDocumentSchema,
+  MoveDocumentItemDto,
+  MoveDocumentItemSchema,
   ReorderDocumentItemsDto,
   ReorderDocumentItemsSchema,
   SetFavoriteDocumentDto,
@@ -35,7 +40,9 @@ import { DeleteDocumentUseCase } from '../application/use-cases/delete-document.
 import { AddDocumentItemsUseCase } from '../application/use-cases/add-document-items.use-case';
 import { UpdateDocumentItemUseCase } from '../application/use-cases/update-document-item.use-case';
 import { ReorderDocumentItemsUseCase } from '../application/use-cases/reorder-document-items.use-case';
+import { MoveDocumentItemUseCase } from '../application/use-cases/move-document-item.use-case';
 import { GenerateDocumentUseCase } from '../application/use-cases/generate-document.use-case';
+import { GenerateDocumentItemUseCase } from '../application/use-cases/generate-document-item.use-case';
 import { ExportDocumentPdfUseCase } from '../application/use-cases/export-document-pdf.use-case';
 import { SetFavoriteDocumentUseCase } from '../application/use-cases/set-favorite-document.use-case';
 import { DocumentPresenter } from './document.presenter';
@@ -51,7 +58,9 @@ export class DocumentsController {
     private readonly addDocumentItems: AddDocumentItemsUseCase,
     private readonly updateDocumentItem: UpdateDocumentItemUseCase,
     private readonly reorderDocumentItems: ReorderDocumentItemsUseCase,
+    private readonly moveDocumentItem: MoveDocumentItemUseCase,
     private readonly generateDocument: GenerateDocumentUseCase,
+    private readonly generateDocumentItem: GenerateDocumentItemUseCase,
     private readonly exportDocumentPdf: ExportDocumentPdfUseCase,
     private readonly setFavoriteDocument: SetFavoriteDocumentUseCase,
   ) {}
@@ -65,13 +74,23 @@ export class DocumentsController {
   @Get()
   async findAll() {
     const documents = await this.listDocuments.execute();
-    return documents.map(DocumentPresenter.toSummary);
+    return documents.map(({ document, stats }) => ({ ...DocumentPresenter.toSummary(document), ...stats }));
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const document = await this.getDocument.execute(id);
-    return DocumentPresenter.toDetail(document);
+  async findOne(
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(DocumentItemsPageQuerySchema)) query: DocumentItemsPageQueryDto,
+  ) {
+    if (!query.page && !query.pageSize) {
+      const document = await this.getDocument.execute(id);
+      return DocumentPresenter.toDetail(document);
+    }
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const { document, totalItems } = await this.getDocument.executePage(id, page, pageSize);
+    return { ...DocumentPresenter.toDetail(document), totalItems, page, pageSize };
   }
 
   @Patch(':id')
@@ -124,14 +143,30 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
+  @Patch(':id/items/:itemId/move')
+  @HttpCode(204)
+  async moveItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body(new ZodValidationPipe(MoveDocumentItemSchema)) dto: MoveDocumentItemDto,
+  ) {
+    await this.moveDocumentItem.execute(id, itemId, dto.direction);
+  }
+
+  @Post(':id/items/:itemId/generate')
+  async generateItem(@Param('id') id: string, @Param('itemId') itemId: string) {
+    const item = await this.generateDocumentItem.execute(id, itemId);
+    return DocumentPresenter.toItem(item);
+  }
+
   @Patch(':id/items/:itemId')
   async updateItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
     @Body(new ZodValidationPipe(UpdateDocumentItemSchema)) dto: UpdateDocumentItemDto,
   ) {
-    const document = await this.updateDocumentItem.execute(id, itemId, dto);
-    return DocumentPresenter.toDetail(document);
+    const item = await this.updateDocumentItem.execute(id, itemId, dto);
+    return DocumentPresenter.toItem(item);
   }
 
   @Post(':id/generate')

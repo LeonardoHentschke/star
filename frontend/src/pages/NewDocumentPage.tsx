@@ -1,380 +1,56 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Loader2, Search, Sparkles } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { api } from '@/lib/api';
-import { formatDateShort } from '@/lib/utils';
 import { useTrackDocumentJob } from '@/lib/document-job-context';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { DatePicker } from '@/components/ui/date-picker';
-import { MultiSelect } from '@/components/ui/multi-select';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
-
-interface JiraTask {
-  id: string;
-  key: string;
-  summary: string;
-  description: string | null;
-  status: string;
-  statusCategory: 'new' | 'indeterminate' | 'done';
-  url: string;
-}
-
-interface JiraFilterOption {
-  id: string;
-  name: string;
-}
-
-interface JiraTaskFilters {
-  statuses: JiraFilterOption[];
-  priorities: JiraFilterOption[];
-  issueTypes: JiraFilterOption[];
-}
-
-const EMPTY_FILTERS: JiraTaskFilters = { statuses: [], priorities: [], issueTypes: [] };
-
-function getPageNumbers(current: number, total: number): (number | 'ellipsis')[] {
-  if (total <= 1) return [1];
-
-  const pages = new Set<number>([1, total, current]);
-  for (let offset = 1; offset <= 2; offset++) {
-    if (current - offset >= 1) pages.add(current - offset);
-    if (current + offset <= total) pages.add(current + offset);
-  }
-
-  const sorted = Array.from(pages).sort((a, b) => a - b);
-  const result: (number | 'ellipsis')[] = [];
-  sorted.forEach((page, i) => {
-    if (i > 0 && page - sorted[i - 1] > 1) result.push('ellipsis');
-    result.push(page);
-  });
-  return result;
-}
+  JiraTaskSelector,
+  jiraTasksToDocumentItems,
+  type JiraTask,
+  type SelectedPeriod,
+} from '@/components/JiraTaskSelector';
 
 export default function NewDocumentPage() {
   const navigate = useNavigate();
   const trackJob = useTrackDocumentJob();
-
   const [title, setTitle] = useState('');
-  const [periodStart, setPeriodStart] = useState('');
-  const [periodEnd, setPeriodEnd] = useState('');
-  const [status, setStatus] = useState<string[]>([]);
-  const [priority, setPriority] = useState<string[]>([]);
-  const [issueType, setIssueType] = useState<string[]>([]);
-  const [filterOptions, setFilterOptions] = useState<JiraTaskFilters>(EMPTY_FILTERS);
+  const [creating, setCreating] = useState(false);
 
-  const [tasks, setTasks] = useState<JiraTask[]>([]);
-  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
-  const [step, setStep] = useState<'period' | 'select' | 'creating'>('period');
-  const [searching, setSearching] = useState(false);
-
-  useEffect(() => {
-    api
-      .get<JiraTaskFilters>('/jira/task-filters')
-      .then(({ data }) => setFilterOptions(data))
-      .catch(() => setFilterOptions(EMPTY_FILTERS));
-  }, []);
-
-  async function handleSearch() {
-    setSearching(true);
+  async function handleCreateDocument(tasks: JiraTask[], period: SelectedPeriod) {
+    setCreating(true);
     try {
-      const { data } = await api.get<JiraTask[]>('/jira/tasks', {
-        params: {
-          periodStart,
-          periodEnd,
-          status: status.length ? status.join(',') : undefined,
-          priority: priority.length ? priority.join(',') : undefined,
-          issueType: issueType.length ? issueType.join(',') : undefined,
-        },
-      });
-      setTasks(data);
-      setCurrentPage(1);
-      setStep('select');
+      const { data: doc } = await api.post('/documents', { title, ...period });
+      await api.post(`/documents/${doc.id}/items`, { items: jiraTasksToDocumentItems(tasks) });
+      trackJob(doc.id);
+      navigate(`/documents/${doc.id}/review`);
     } finally {
-      setSearching(false);
+      setCreating(false);
     }
   }
-
-  async function handleCreateDocument() {
-    setStep('creating');
-
-    try {
-      await createDocument();
-    } catch (err) {
-      setStep('select');
-      throw err;
-    }
-  }
-
-  async function createDocument() {
-    const { data: doc } = await api.post('/documents', { title, periodStart, periodEnd });
-
-    const selected = tasks.filter((t) => selectedTasks.includes(t.key));
-    const items = selected.map((task) => ({
-      sourceType: 'jira' as const,
-      sourceRef: task.key,
-      sourceTitle: task.summary,
-      sourceUrl: task.url,
-      jiraIssueId: task.id,
-      jiraStatus: task.status,
-      jiraStatusCategory: task.statusCategory,
-      description: task.description,
-    }));
-
-    await api.post(`/documents/${doc.id}/items`, { items });
-    trackJob(doc.id);
-
-    navigate(`/documents/${doc.id}/review`);
-  }
-
-  function toggleTask(key: string, checked: boolean) {
-    setSelectedTasks((prev) => (checked ? [...prev, key] : prev.filter((k) => k !== key)));
-  }
-
-  function handlePageSizeChange(size: number) {
-    setPageSize(size);
-    setCurrentPage(1);
-  }
-
-  const allTasksSelected = tasks.length > 0 && selectedTasks.length === tasks.length;
-
-  const canSearch = Boolean(title && periodStart && periodEnd);
-
-  const totalPages = Math.max(1, Math.ceil(tasks.length / pageSize));
-
-  const paginatedTasks = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return tasks.slice(start, start + pageSize);
-  }, [tasks, currentPage, pageSize]);
-
-  const pageNumbers = getPageNumbers(currentPage, totalPages);
 
   return (
     <div className="mx-auto max-w-6xl px-8 py-10">
       <header className="flex flex-col gap-1.5">
-        <Link to="/" className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+        <Link to="/documents" className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-[13px] w-[13px]" strokeWidth={1.75} />
           Documentos
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">Novo documento</h1>
-        {step === 'period' && (
-          <p className="text-sm text-muted-foreground">Defina o título e o período da avaliação.</p>
-        )}
+        <p className="text-sm text-muted-foreground">
+          Escolha o período, selecione as tarefas do Jira e gere o documento STAR com IA.
+        </p>
       </header>
 
-      {step === 'period' && (
-        <>
-          <div className="mt-7 flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
-            <div className="flex flex-col gap-1.5">
-              <Label>Título</Label>
-              <Input
-                placeholder="Avaliação Q3 2026"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label>Início do período</Label>
-                <DatePicker value={periodStart} onChange={setPeriodStart} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Fim do período</Label>
-                <DatePicker value={periodEnd} onChange={setPeriodEnd} />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>Status</Label>
-                <MultiSelect
-                  placeholder="Todos"
-                  value={status}
-                  onChange={setStatus}
-                  options={filterOptions.statuses.map((s) => ({ value: s.id, label: s.name }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Prioridade</Label>
-                <MultiSelect
-                  placeholder="Todas"
-                  value={priority}
-                  onChange={setPriority}
-                  options={filterOptions.priorities.map((p) => ({ value: p.id, label: p.name }))}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Tipo de item</Label>
-                <MultiSelect
-                  placeholder="Todos"
-                  value={issueType}
-                  onChange={setIssueType}
-                  options={filterOptions.issueTypes.map((t) => ({ value: t.id, label: t.name }))}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <span className="text-xs text-muted-foreground">Preencha os três campos para continuar.</span>
-            <Button onClick={handleSearch} disabled={!canSearch || searching}>
-              {searching ? (
-                <Loader2 className="star-spin h-4 w-4" strokeWidth={1.75} />
-              ) : (
-                <Search className="h-4 w-4" strokeWidth={1.75} />
-              )}
-              {searching ? 'Buscando tarefas…' : 'Buscar tarefas do Jira'}
-            </Button>
-          </div>
-        </>
-      )}
-
-      {(step === 'select' || step === 'creating') && (
-        <>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setStep('period')}
-            className="mt-6 h-auto w-full flex-wrap justify-start gap-3 rounded-lg border border-border bg-muted/60 px-4 py-3 text-left font-normal"
-          >
-            <span className="text-sm font-medium">{title}</span>
-            <span className="text-xs text-muted-foreground">
-              {formatDateShort(periodStart)} – {formatDateShort(periodEnd)}
-            </span>
-            <span className="ml-auto text-xs font-medium text-muted-foreground underline-offset-2 hover:underline">
-              Editar
-            </span>
-          </Button>
-
-          <section className="mt-7">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <h2 className="text-sm font-semibold">Tarefas do Jira</h2>
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0"
-                onClick={() => setSelectedTasks(allTasksSelected ? [] : tasks.map((t) => t.key))}
-              >
-                {allTasksSelected ? 'Limpar seleção' : 'Selecionar todas'}
-              </Button>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Os Pull Requests já vinculados a cada tarefa no Jira entram automaticamente no documento.
-            </p>
-            <div className="mt-3 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-              {paginatedTasks.map((task) => (
-                <Label
-                  key={task.key}
-                  className="flex cursor-pointer items-start gap-3 px-4 py-3 font-normal text-inherit transition-colors hover:bg-accent"
-                >
-                  <Checkbox
-                    className="-mt-0.5"
-                    checked={selectedTasks.includes(task.key)}
-                    onCheckedChange={(checked) => toggleTask(task.key, checked === true)}
-                  />
-                  <span className="w-20 shrink-0 whitespace-nowrap font-mono text-[12px] font-medium text-blue-700 dark:text-blue-400">
-                    {task.key}
-                  </span>
-                  <span className="text-[13px] text-card-foreground">{task.summary}</span>
-                </Label>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-xs text-muted-foreground">{tasks.length} encontradas</span>
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-xs text-muted-foreground">Por página</Label>
-                  <Select value={String(pageSize)} onValueChange={(v) => handlePageSizeChange(Number(v))}>
-                    <SelectTrigger className="h-7 w-[68px] text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="25">25</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {totalPages > 1 && (
-                <Pagination className="mx-0 w-auto">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationPrevious
-                        href="#"
-                        text="Anterior"
-                        aria-disabled={currentPage === 1}
-                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : undefined}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (currentPage > 1) setCurrentPage((p) => p - 1);
-                        }}
-                      />
-                    </PaginationItem>
-
-                    {pageNumbers.map((page, idx) =>
-                      page === 'ellipsis' ? (
-                        <PaginationItem key={`ellipsis-${idx}`}>
-                          <PaginationEllipsis />
-                        </PaginationItem>
-                      ) : (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            href="#"
-                            isActive={page === currentPage}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              setCurrentPage(page);
-                            }}
-                          >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ),
-                    )}
-
-                    <PaginationItem>
-                      <PaginationNext
-                        href="#"
-                        text="Próxima"
-                        aria-disabled={currentPage === totalPages}
-                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : undefined}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (currentPage < totalPages) setCurrentPage((p) => p + 1);
-                        }}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              )}
-            </div>
-          </section>
-
-          <div className="mt-7 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-5">
-            <span className="text-xs text-muted-foreground">{selectedTasks.length} tarefas selecionadas</span>
-            <Button onClick={handleCreateDocument} disabled={step === 'creating' || selectedTasks.length === 0}>
-              <Sparkles className={step === 'creating' ? 'star-spin h-4 w-4' : 'h-4 w-4'} strokeWidth={1.75} />
-              {step === 'creating' ? 'Criando documento…' : 'Gerar documento STAR'}
-            </Button>
-          </div>
-        </>
-      )}
+      <div className="mt-7">
+        <JiraTaskSelector
+          title={{ value: title, onChange: setTitle }}
+          finalStepLabel="Gerar"
+          submitLabel="Gerar documento STAR"
+          submittingLabel="Criando documento…"
+          submitting={creating}
+          onSubmit={handleCreateDocument}
+        />
+      </div>
     </div>
   );
 }

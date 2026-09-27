@@ -2,6 +2,8 @@ export interface DashboardSummaryQueryDto {
   documentId: string;
   periodStart?: string;
   periodEnd?: string;
+  status?: string;
+  issueType?: string;
 }
 
 export interface DashboardTopItemDto {
@@ -16,7 +18,12 @@ export interface DashboardTopItemDto {
 
 export interface DashboardSummaryDto {
   document: { id: string; title: string; periodStart: string; periodEnd: string };
-  filter: { periodStart: string | null; periodEnd: string | null };
+  filter: {
+    periodStart: string | null;
+    periodEnd: string | null;
+    status: string | null;
+    issueType: string | null;
+  };
   totals: {
     itemsCount: number;
     doneItemsCount: number;
@@ -27,6 +34,7 @@ export interface DashboardSummaryDto {
   };
   topItemByLinesChanged: DashboardTopItemDto | null;
   byStatus: { status: string; itemsCount: number }[];
+  byIssueType: { issueType: string; itemsCount: number }[];
   topItemsByLinesChanged: DashboardTopItemDto[];
   completedOverTime: { month: string; doneCount: number }[];
   prCycleTime: { averageDays: number | null; sampleSize: number };

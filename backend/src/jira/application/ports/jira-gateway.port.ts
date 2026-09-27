@@ -7,6 +7,7 @@ export interface JiraTaskDto {
   description: string | null;
   status: string;
   statusCategory: JiraStatusCategory;
+  issueType: string | null;
   updated: string;
   url: string;
 }
