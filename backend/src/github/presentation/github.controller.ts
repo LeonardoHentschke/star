@@ -13,19 +13,16 @@ export class GithubController {
     private readonly getPullRequest: GetGithubPullRequestUseCase,
   ) {}
 
-  // RF02
   @Get('test-connection')
   testGithubConnection() {
     return this.testConnection.execute();
   }
 
-  // RF03
   @Get('repos')
   findRepos() {
     return this.listRepos.execute();
   }
 
-  // RF04
   @Get('pull-requests')
   findPullRequests(
     @Query('repo') repo: string,
@@ -35,8 +32,6 @@ export class GithubController {
     return this.listPullRequests.execute(repo, periodStart, periodEnd);
   }
 
-  // Usado na tela "Novo Documento" para buscar o título/corpo de um PR
-  // já linkado a uma tarefa do Jira (fluxo tarefa → PRs vinculados).
   @Get('pull-requests/lookup')
   findPullRequestByUrl(@Query('url') url: string) {
     return this.getPullRequest.execute(url);

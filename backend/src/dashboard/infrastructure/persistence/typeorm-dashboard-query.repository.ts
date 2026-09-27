@@ -12,8 +12,32 @@ export class TypeOrmDashboardQueryRepository implements DashboardQueryPort {
   ) {}
 
   async findDocumentById(documentId: string): Promise<DashboardDocument | null> {
-    // `items` é eager em DocumentOrmEntity, então já vem carregado.
-    const doc = await this.ormRepo.findOne({ where: { id: documentId } });
+    const doc = await this.ormRepo.findOne({
+      where: { id: documentId },
+      relations: { items: true },
+      relationLoadStrategy: 'query',
+      select: {
+        id: true,
+        title: true,
+        periodStart: true,
+        periodEnd: true,
+        items: {
+          id: true,
+          documentId: true,
+          sourceType: true,
+          sourceRef: true,
+          sourceTitle: true,
+          sourceUrl: true,
+          jiraStatus: true,
+          jiraDone: true,
+          jiraIssueType: true,
+          merged: true,
+          additions: true,
+          deletions: true,
+          rawSnapshot: true,
+        },
+      },
+    });
     if (!doc) return null;
 
     return {
@@ -30,6 +54,7 @@ export class TypeOrmDashboardQueryRepository implements DashboardQueryPort {
         sourceUrl: item.sourceUrl,
         jiraStatus: item.jiraStatus,
         jiraDone: item.jiraDone,
+        jiraIssueType: item.jiraIssueType,
         merged: item.merged,
         additions: item.additions,
         deletions: item.deletions,

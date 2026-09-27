@@ -42,6 +42,9 @@ export class DocumentItemOrmEntity {
   @Column({ type: 'boolean', nullable: true })
   jiraDone: boolean | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  jiraIssueType: string | null;
+
   @Column({ type: 'boolean', nullable: true })
   merged: boolean | null;
 

@@ -2,7 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DocumentNotFoundError } from '../../../documents/domain/errors/document-domain.errors';
 import {
   isItemDone,
+  itemMatchesAttributeFilter,
   itemMatchesDateFilter,
+  itemStatusLabel,
   linesChanged,
   linkedPullRequests,
 } from '../../domain/dashboard-item-status';
@@ -25,8 +27,10 @@ export class GetDashboardSummaryUseCase {
     const document = await this.dashboardQuery.findDocumentById(query.documentId);
     if (!document) throw new DocumentNotFoundError(query.documentId);
 
-    const items = document.items.filter((item) =>
-      itemMatchesDateFilter(item, query.periodStart, query.periodEnd),
+    const items = document.items.filter(
+      (item) =>
+        itemMatchesDateFilter(item, query.periodStart, query.periodEnd) &&
+        itemMatchesAttributeFilter(item, query.status, query.issueType),
     );
 
     const doneItems = items.filter(isItemDone);
@@ -43,7 +47,12 @@ export class GetDashboardSummaryUseCase {
         periodStart: document.periodStart,
         periodEnd: document.periodEnd,
       },
-      filter: { periodStart: query.periodStart ?? null, periodEnd: query.periodEnd ?? null },
+      filter: {
+        periodStart: query.periodStart ?? null,
+        periodEnd: query.periodEnd ?? null,
+        status: query.status ?? null,
+        issueType: query.issueType ?? null,
+      },
       totals: {
         itemsCount: items.length,
         doneItemsCount: doneItems.length,
@@ -54,6 +63,7 @@ export class GetDashboardSummaryUseCase {
       },
       topItemByLinesChanged: top && linesChanged(top) > 0 ? this.toTopItemDto(top) : null,
       byStatus: this.byStatus(items),
+      byIssueType: this.byIssueType(items),
       topItemsByLinesChanged: ranked
         .filter((item) => linesChanged(item) > 0)
         .slice(0, TOP_ITEMS_LIMIT)
@@ -75,28 +85,24 @@ export class GetDashboardSummaryUseCase {
     };
   }
 
-  // Agrupa por status real do item: texto do status do Jira (workflow-specific,
-  // ex: "To Do"/"In Progress"/"In Review"/"Done") ou, para PRs sem Jira vinculado,
-  // "Aberta"/"Mesclada" a partir de `merged`.
   private byStatus(items: DashboardDocumentItem[]): { status: string; itemsCount: number }[] {
     const counts = new Map<string, number>();
     for (const item of items) {
-      const status =
-        item.sourceType === 'jira'
-          ? (item.jiraStatus ?? 'Sem status')
-          : item.merged
-            ? 'Mesclada'
-            : 'Aberta';
+      const status = itemStatusLabel(item);
       counts.set(status, (counts.get(status) ?? 0) + 1);
     }
     return [...counts.entries()].map(([status, itemsCount]) => ({ status, itemsCount }));
   }
 
-  // Agrupa por mês do `mergedAt` da PR mergeada de cada item concluído (mesma
-  // fonte de dado que `prCycleTime` já usa). Com um único documento, agrupar
-  // por período do documento (como antes) sempre daria um ponto só — isso
-  // mostra a evolução real dentro do próprio documento quando ele cobre mais
-  // de um mês. Itens concluídos sem PR mergeada com data não entram aqui.
+  private byIssueType(items: DashboardDocumentItem[]): { issueType: string; itemsCount: number }[] {
+    const counts = new Map<string, number>();
+    for (const item of items) {
+      if (item.sourceType !== 'jira' || !item.jiraIssueType) continue;
+      counts.set(item.jiraIssueType, (counts.get(item.jiraIssueType) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([issueType, itemsCount]) => ({ issueType, itemsCount }));
+  }
+
   private completedOverTime(items: DashboardDocumentItem[]): { month: string; doneCount: number }[] {
     const counts = new Map<string, number>();
     for (const item of items) {
@@ -107,7 +113,7 @@ export class GetDashboardSummaryUseCase {
         .map((pr) => pr.mergedAt as string);
       if (mergedDates.length === 0) continue;
 
-      const month = [...mergedDates].sort().at(-1)!.slice(0, 7); // "YYYY-MM"
+      const month = [...mergedDates].sort().at(-1)!.slice(0, 7);
       counts.set(month, (counts.get(month) ?? 0) + 1);
     }
     return [...counts.entries()]

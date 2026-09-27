@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { Moon, Star, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,11 @@ import { DocumentJobProvider } from '@/lib/document-job-context';
 import ConnectionsPage from './pages/ConnectionsPage';
 import DocumentsListPage from './pages/DocumentsListPage';
 import NewDocumentPage from './pages/NewDocumentPage';
+import AddDocumentTasksPage from './pages/AddDocumentTasksPage';
 import ReviewDocumentPage from './pages/ReviewDocumentPage';
 import FinalDocumentPage from './pages/FinalDocumentPage';
 import DashboardPage from './pages/DashboardPage';
-
-// Estrutura de rotas alinhada às 5 telas do PRD (seção 11):
-// 1. Conexões  2. Lista de Documentos  3. Novo Documento
-// 4. Revisão do Documento  5. Documento Final
+import HowItWorksPage from './pages/HowItWorksPage';
 
 type Theme = 'light' | 'dark';
 
@@ -49,19 +47,25 @@ export default function App() {
                 Star
               </span>
               <Link to="/" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                Documentos
+                Dashboard
               </Link>
               <Link
-                to="/dashboard"
+                to="/documents"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                Dashboard
+                Documentos
               </Link>
               <Link
                 to="/connections"
                 className="text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 Conexões
+              </Link>
+              <Link
+                to="/how-it-works"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Como funciona
               </Link>
             </div>
             <Button
@@ -77,10 +81,13 @@ export default function App() {
           </nav>
           <main>
             <Routes>
-              <Route path="/" element={<DocumentsListPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/dashboard" element={<Navigate to="/" replace />} />
+              <Route path="/documents" element={<DocumentsListPage />} />
               <Route path="/connections" element={<ConnectionsPage />} />
+              <Route path="/how-it-works" element={<HowItWorksPage />} />
               <Route path="/documents/new" element={<NewDocumentPage />} />
+              <Route path="/documents/:id/add-tasks" element={<AddDocumentTasksPage />} />
               <Route path="/documents/:id/review" element={<ReviewDocumentPage />} />
               <Route path="/documents/:id" element={<FinalDocumentPage />} />
             </Routes>

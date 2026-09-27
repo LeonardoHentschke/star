@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -16,8 +17,12 @@ import {
   AddDocumentItemsBatchSchema,
   CreateDocumentDto,
   CreateDocumentSchema,
+  DocumentItemsPageQueryDto,
+  DocumentItemsPageQuerySchema,
   GenerateDocumentDto,
   GenerateDocumentSchema,
+  MoveDocumentItemDto,
+  MoveDocumentItemSchema,
   ReorderDocumentItemsDto,
   ReorderDocumentItemsSchema,
   SetFavoriteDocumentDto,
@@ -35,7 +40,9 @@ import { DeleteDocumentUseCase } from '../application/use-cases/delete-document.
 import { AddDocumentItemsUseCase } from '../application/use-cases/add-document-items.use-case';
 import { UpdateDocumentItemUseCase } from '../application/use-cases/update-document-item.use-case';
 import { ReorderDocumentItemsUseCase } from '../application/use-cases/reorder-document-items.use-case';
+import { MoveDocumentItemUseCase } from '../application/use-cases/move-document-item.use-case';
 import { GenerateDocumentUseCase } from '../application/use-cases/generate-document.use-case';
+import { GenerateDocumentItemUseCase } from '../application/use-cases/generate-document-item.use-case';
 import { ExportDocumentPdfUseCase } from '../application/use-cases/export-document-pdf.use-case';
 import { SetFavoriteDocumentUseCase } from '../application/use-cases/set-favorite-document.use-case';
 import { DocumentPresenter } from './document.presenter';
@@ -51,30 +58,39 @@ export class DocumentsController {
     private readonly addDocumentItems: AddDocumentItemsUseCase,
     private readonly updateDocumentItem: UpdateDocumentItemUseCase,
     private readonly reorderDocumentItems: ReorderDocumentItemsUseCase,
+    private readonly moveDocumentItem: MoveDocumentItemUseCase,
     private readonly generateDocument: GenerateDocumentUseCase,
+    private readonly generateDocumentItem: GenerateDocumentItemUseCase,
     private readonly exportDocumentPdf: ExportDocumentPdfUseCase,
     private readonly setFavoriteDocument: SetFavoriteDocumentUseCase,
   ) {}
 
-  // RF10
   @Post()
   async create(@Body(new ZodValidationPipe(CreateDocumentSchema)) dto: CreateDocumentDto) {
     const document = await this.createDocument.execute(dto);
     return DocumentPresenter.toSummary(document);
   }
 
-  // RF10
   @Get()
   async findAll() {
     const documents = await this.listDocuments.execute();
-    return documents.map(DocumentPresenter.toSummary);
+    return documents.map(({ document, stats }) => ({ ...DocumentPresenter.toSummary(document), ...stats }));
   }
 
-  // RF10
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const document = await this.getDocument.execute(id);
-    return DocumentPresenter.toDetail(document);
+  async findOne(
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(DocumentItemsPageQuerySchema)) query: DocumentItemsPageQueryDto,
+  ) {
+    if (!query.page && !query.pageSize) {
+      const document = await this.getDocument.execute(id);
+      return DocumentPresenter.toDetail(document);
+    }
+
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 10;
+    const { document, totalItems } = await this.getDocument.executePage(id, page, pageSize);
+    return { ...DocumentPresenter.toDetail(document), totalItems, page, pageSize };
   }
 
   @Patch(':id')
@@ -86,8 +102,6 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
-  // Marcar/desmarcar como favorito (usado pela tela de Dashboard para abrir
-  // sempre no mesmo documento).
   @Patch(':id/favorite')
   async setFavorite(
     @Param('id') id: string,
@@ -97,15 +111,12 @@ export class DocumentsController {
     return DocumentPresenter.toSummary(document);
   }
 
-  // RF10
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.deleteDocument.execute(id);
     return { deleted: true };
   }
 
-  // RF06/RF07 — selecionar itens de Jira/GitHub para o documento. Processa em
-  // background (pode levar minutos com muitos itens) — responde na hora.
   @Post(':id/items')
   @HttpCode(202)
   async addItems(
@@ -116,8 +127,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // Retoma um job de adicionar itens que falhou — continua de onde parou,
-  // sem precisar reenviar a seleção original.
   @Post(':id/items/resume')
   @HttpCode(202)
   async resumeAddItems(@Param('id') id: string) {
@@ -125,9 +134,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // Reordenação manual dos itens (usuário não concorda com a ordem sugerida pela
-  // IA, ou escreveu o documento manualmente). Precisa vir antes de
-  // ':id/items/:itemId' para não ser capturada pela rota dinâmica.
   @Patch(':id/items/reorder')
   async reorderItems(
     @Param('id') id: string,
@@ -137,19 +143,32 @@ export class DocumentsController {
     return DocumentPresenter.toDetail(document);
   }
 
-  // RF09 — editar texto STAR de um item
+  @Patch(':id/items/:itemId/move')
+  @HttpCode(204)
+  async moveItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body(new ZodValidationPipe(MoveDocumentItemSchema)) dto: MoveDocumentItemDto,
+  ) {
+    await this.moveDocumentItem.execute(id, itemId, dto.direction);
+  }
+
+  @Post(':id/items/:itemId/generate')
+  async generateItem(@Param('id') id: string, @Param('itemId') itemId: string) {
+    const item = await this.generateDocumentItem.execute(id, itemId);
+    return DocumentPresenter.toItem(item);
+  }
+
   @Patch(':id/items/:itemId')
   async updateItem(
     @Param('id') id: string,
     @Param('itemId') itemId: string,
     @Body(new ZodValidationPipe(UpdateDocumentItemSchema)) dto: UpdateDocumentItemDto,
   ) {
-    const document = await this.updateDocumentItem.execute(id, itemId, dto);
-    return DocumentPresenter.toDetail(document);
+    const item = await this.updateDocumentItem.execute(id, itemId, dto);
+    return DocumentPresenter.toItem(item);
   }
 
-  // RF08 + RF12 — gerar textos STAR e resumo executivo via IA. Processa em
-  // background (uma chamada de IA por item) — responde na hora.
   @Post(':id/generate')
   @HttpCode(202)
   async generate(
@@ -160,8 +179,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // Retoma um job de geração via IA que falhou — continua só os itens ainda
-  // incompletos, sem reprocessar (e re-cobrar) os que já foram gerados.
   @Post(':id/generate/resume')
   @HttpCode(202)
   async resumeGenerate(@Param('id') id: string) {
@@ -169,7 +186,6 @@ export class DocumentsController {
     return { accepted: true };
   }
 
-  // RF11 — exportar PDF
   @Get(':id/export/pdf')
   async exportPdf(@Param('id') id: string, @Res() res: Response) {
     const buffer = await this.exportDocumentPdf.execute(id);

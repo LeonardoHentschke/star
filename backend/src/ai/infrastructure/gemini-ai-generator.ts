@@ -15,11 +15,6 @@ const StarResultSchema = z.object({
 
 const RankingResultSchema = z.array(z.string());
 
-/**
- * Implementação concreta da porta AiTextGeneratorPort usando a API do
- * Gemini. Se um dia trocarmos de provedor de IA, só esta classe muda —
- * domínio e use cases continuam intocados.
- */
 @Injectable()
 export class GeminiAiGenerator implements AiTextGeneratorPort {
   private apiKey: string;
@@ -30,7 +25,6 @@ export class GeminiAiGenerator implements AiTextGeneratorPort {
     this.model = this.config.get<string>('GEMINI_MODEL', 'gemini-2.0-flash');
   }
 
-  // RF02 — usado pela tela de Conexões
   async testConnection(): Promise<ConnectionStatus> {
     try {
       const { data } = await axios.get(
@@ -43,7 +37,6 @@ export class GeminiAiGenerator implements AiTextGeneratorPort {
     }
   }
 
-  // RF08
   async generateStarForItem(source: SourceReference): Promise<StarContent> {
     const prompt = `
 Você é um assistente que ajuda profissionais de tecnologia a documentar suas conquistas
@@ -66,7 +59,6 @@ Responda APENAS em JSON, no formato:
     return StarContent.create(parsed);
   }
 
-  // RF12
   async generateExecutiveSummary(items: { title: string; star: StarContent }[]): Promise<string> {
     const itemsText = items
       .map(
@@ -89,7 +81,6 @@ Responda apenas com o texto do resumo, sem JSON, sem markdown, sem aspas ao redo
     return this.callGemini(prompt);
   }
 
-  // RF12 — usado para listar as tarefas em ordem de impacto no documento gerado
   async rankItemsByImpact(items: { id: string; title: string; result: string }[]): Promise<string[]> {
     const itemsText = items
       .map((it, i) => `${i + 1}. id: "${it.id}" | Título: ${it.title}\n   Resultado: ${it.result}`)

@@ -1,21 +1,20 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Document } from '../../domain/document.entity';
 import { DOCUMENT_REPOSITORY, DocumentRepository } from '../../domain/document.repository';
 import { DocumentNotFoundError } from '../../domain/errors/document-domain.errors';
 
 @Injectable()
-export class ReorderDocumentItemsUseCase {
+export class MoveDocumentItemUseCase {
   constructor(
     @Inject(DOCUMENT_REPOSITORY) private readonly repo: DocumentRepository,
   ) {}
 
-  async execute(documentId: string, itemIds: string[]): Promise<Document> {
+  async execute(documentId: string, itemId: string, direction: 'up' | 'down'): Promise<void> {
     const document = await this.repo.findById(documentId);
     if (!document) throw new DocumentNotFoundError(documentId);
 
-    document.reorderItems(itemIds);
-
-    await this.repo.save(document);
-    return document;
+    const changedItems = document.moveItem(itemId, direction);
+    for (const item of changedItems) {
+      await this.repo.saveItem(documentId, item);
+    }
   }
 }
